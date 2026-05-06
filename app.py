@@ -2141,11 +2141,6 @@ if "Master Data" in tabs:
                     df_master.loc[index, "I/F"] = "Foreign"
                     df_master.loc[index, "USD/INR"] = "USD"
 
-                if "GSTIN" not in df_master.columns:
-                    df_master["GSTIN"] = ""
-
-                df_master["GSTIN"] = df_master["GSTIN"].astype(str)
-                
                 df_master.loc[index, "GSTIN"] = gstin
                 df_master.loc[index, "NET Term"] = net_term
 
@@ -4356,8 +4351,6 @@ if "Costs Centre" in tabs:
                 df_table["Annual/FY Total"] = df_table[month_cols].sum(axis=1)
 
                 rows_without_total = ["Direct Cost", "Indirect Cost", "FX Rate"]
-                
-                import numpy as np
                 df_table.loc[
                     df_table["Particulars"].isin(rows_without_total),
                     "Annual/FY Total"
