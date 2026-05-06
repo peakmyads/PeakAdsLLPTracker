@@ -4358,15 +4358,14 @@ if "Costs Centre" in tabs:
 
                 df_table["Annual/FY Total"] = df_table[month_cols].sum(axis=1)
 
-                # Cast to object before assigning non-numeric sentinel so
-                # pandas (>=2.x) does not raise "Invalid value for dtype float64"
+                # Cast to object before assigning non-numeric sentinel
                 df_table["Annual/FY Total"] = df_table["Annual/FY Total"].astype(object)
 
                 rows_without_total = ["Direct Cost", "Indirect Cost", "FX Rate"]
                 df_table.loc[
                     df_table["Particulars"].isin(rows_without_total),
                     "Annual/FY Total"
-                ] = np.nan  # AgGrid formatter already renders null/NaN as blank
+                ] = np.nan
 
                 df_table = df_table[["Particulars", "Currency"] + month_cols + ["Annual/FY Total"]]
 
@@ -4799,21 +4798,19 @@ if "P&L" in tabs:
                 for _mc in month_cols_pnl:
                     df_pnl[_mc] = pd.to_numeric(df_pnl[_mc], errors="coerce")
                     df_pnl[_mc] = df_pnl[_mc].round(2)
-                    # keep blank string for section-header rows (Direct Cost / Indirect Cost)
+                    # keep NaN for section-header rows; AgGrid formatter renders NaN as blank
                     _header_mask = df_pnl["Particulars"].isin(["Direct Cost", "Indirect Cost", "FX Rate", ""])
-                    df_pnl.loc[_header_mask, _mc] = df_pnl.loc[_header_mask, _mc].where(
-                        df_pnl.loc[_header_mask, _mc].notna(), other=""
-                    )
+                    df_pnl.loc[_header_mask, _mc] = np.nan
                     
                 # Annual/FY Total
                 skip_total_rows = ["Direct Cost", "Indirect Cost", "FX Rate"]
                 def pnl_annual(row):
                     if row["Particulars"] in skip_total_rows:
-                        return ""
+                        return np.nan
                     try:
                         return round(sum(pd.to_numeric(row[c], errors="coerce") or 0 for c in month_cols_pnl), 2)
                     except:
-                        return ""
+                        return np.nan
                 df_pnl["Annual/FY Total"] = df_pnl.apply(pnl_annual, axis=1)
 
                 # Revenue Annual/FY Total override (sum of USD cols)
@@ -4821,9 +4818,10 @@ if "P&L" in tabs:
                 df_pnl.loc[df_pnl["Particulars"] == "Revenue INR", "Annual/FY Total"] = revenue_inr_fy_total
                 df_pnl.loc[df_pnl["Particulars"] == "Net Profit", "Annual/FY Total"] = net_profit_fy_total
 
-                # ── Replace any remaining NaN / 'nan' strings with blank ──
-                df_pnl = df_pnl.fillna("")
-                df_pnl = df_pnl.replace("nan", "")
+                # Replace NaN/nan strings with blank — only on object (string) columns
+                # fillna("") on float columns raises TypeError in pandas >=2.x
+                obj_cols = df_pnl.select_dtypes(include="object").columns
+                df_pnl[obj_cols] = df_pnl[obj_cols].fillna("").replace("nan", "")
 
                 # -----------------------------
                 # DEFINE DIALOG FIRST (IMPORTANT)
