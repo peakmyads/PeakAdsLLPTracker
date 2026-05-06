@@ -2540,7 +2540,7 @@ if "Master Data" in tabs:
                 update_on=["cellValueChanged"],
                 data_return_mode="AS_INPUT",
                 fit_columns_on_grid_load=True,
-                height=750,
+                height=650,
                 custom_css=custom_css
             )
             
