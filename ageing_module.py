@@ -343,7 +343,7 @@ def render_ageing_tab(dsp_df, ssp_df):
             <div style="background:linear-gradient(135deg,#003366 0%,#005599 100%);
             border-radius:10px;padding:18px 24px;margin-bottom:20px;
             box-shadow:0 4px 16px rgba(0,51,102,.2);
-            display:flex;align-items:center;gap:14px;">
+            display:flex;align-items:center;height:55px;gap:14px;">
             <div style="font-size:32px;">📈</div>
             <div>
                 <div style="color:white;font-size:20px;font-weight:800;">
@@ -353,7 +353,7 @@ def render_ageing_tab(dsp_df, ssp_df):
                     Accounts Payable — SSP Vendors</div>
             </div></div>
         ''', unsafe_allow_html=True)
-
+        
         view = st.radio(
             "view", ["AR Ageing — DSP (Customers)", "AP Ageing — SSP (Vendors)"],
             horizontal=True, label_visibility="collapsed", key="ageing_view_radio",
