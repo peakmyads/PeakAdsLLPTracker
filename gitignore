@@ -1,0 +1,12 @@
+# Add these lines to your .gitignore file
+# (create .gitignore in your project root if it doesn't exist)
+
+# Streamlit secrets — NEVER commit this
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.pyc
+
+# SQLite database (optional — remove if you want to track it)
+*.db
