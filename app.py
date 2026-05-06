@@ -2115,6 +2115,14 @@ if "Master Data" in tabs:
             df_master["Month"] = pd.to_datetime(df_master["Month"], format="%b-%Y", errors="coerce")
             df_master["Month"] = df_master["Month"].dt.strftime("%b-%Y")
 
+            # Ensure string columns have object dtype before assignment
+            # (pandas infers float64 for all-NaN columns loaded from Excel)
+            for _str_col in ["GSTIN", "NET Term", "I/F", "USD/INR"]:
+                if _str_col not in df_master.columns:
+                    df_master[_str_col] = ""
+                else:
+                    df_master[_str_col] = df_master[_str_col].astype(object)
+
             for index, row in df_master.iterrows():
 
                 if df_partner.empty:
@@ -2130,9 +2138,9 @@ if "Master Data" in tabs:
                 if partner_match.empty:
                     continue
 
-                country = partner_match.iloc[0].get("Country", "")
-                gstin = partner_match.iloc[0].get("GSTIN", "")
-                net_term = partner_match.iloc[0].get("Payment Terms", "")
+                country  = str(partner_match.iloc[0].get("Country", "") or "")
+                gstin    = str(partner_match.iloc[0].get("GSTIN", "") or "")
+                net_term = str(partner_match.iloc[0].get("Payment Terms", "") or "")
 
                 if country == "India (IN)":
                     df_master.loc[index, "I/F"] = "Indian"
