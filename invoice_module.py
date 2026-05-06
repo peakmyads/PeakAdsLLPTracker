@@ -1496,7 +1496,6 @@ def render_invoice_module(dsp_df: pd.DataFrame):
         _fy_yr, _inv_filter_month, _inv_filter_quarter
     )
 
-    st.divider()
     
     render_invoice_subnav()                          # ← ADD THIS
     tab_create, tab_history, tab_reminder, tab_statement, tab_gst = st.tabs([
