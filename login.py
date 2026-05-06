@@ -152,6 +152,9 @@ def _inject_loading_screen(logo_b64: str, hold_seconds: float = 6.5) -> None:
         f".ld-bar{{height:100%;width:0%;border-radius:2px;"
         "background:linear-gradient(90deg,#0076CE,#38bdf8);"
         f"animation:ldBar {hold_seconds}s ease-in-out forwards;}}"
+        "#pak-loading{z-index:2147483647!important;}"
+        "[data-testid='stApp'],[data-testid='stAppViewContainer'],[data-testid='stMain'],.stApp{visibility:hidden!important;}"
+        "#pak-loading,#pak-loading *{visibility:visible!important;}"
     )
 
     ld_html = (
@@ -228,7 +231,7 @@ def login_screen():
     # Here we just hold 6.5 s then transition to main app.
     if st.session_state.get("app_loading", False):
         import time
-        time.sleep(5.5)
+        time.sleep(6.5)
         st.session_state.logged_in   = True
         st.session_state.user        = st.session_state.pop("pending_user", "")
         st.session_state.role        = st.session_state.pop("pending_role", "")
@@ -589,7 +592,7 @@ def login_screen():
     <span class="rp-sec-item">\U0001f6e1\ufe0f Role-based</span>
     <span class="rp-sec-item">\U0001f4cb Audit Logs</span>
   </div>
-  <p class="rp-copy">\u00a9 2025 PEAKADS LLP \u00b7 All rights reserved</p>
+  
 </div>""", unsafe_allow_html=True)
 
 
