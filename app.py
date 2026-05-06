@@ -4358,11 +4358,15 @@ if "Costs Centre" in tabs:
 
                 df_table["Annual/FY Total"] = df_table[month_cols].sum(axis=1)
 
+                # Cast to object before assigning non-numeric sentinel so
+                # pandas (>=2.x) does not raise "Invalid value for dtype float64"
+                df_table["Annual/FY Total"] = df_table["Annual/FY Total"].astype(object)
+
                 rows_without_total = ["Direct Cost", "Indirect Cost", "FX Rate"]
                 df_table.loc[
                     df_table["Particulars"].isin(rows_without_total),
                     "Annual/FY Total"
-                ] = ""
+                ] = np.nan  # AgGrid formatter already renders null/NaN as blank
 
                 df_table = df_table[["Particulars", "Currency"] + month_cols + ["Annual/FY Total"]]
 
@@ -4372,7 +4376,7 @@ if "Costs Centre" in tabs:
                 df_table["Group"] = ""
                 df_table.loc[df_table["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
                 df_table.loc[df_table["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
-                df_table["Group"] = df_table["Group"].replace("", method="ffill")
+                df_table["Group"] = df_table["Group"].replace("", np.nan).ffill().fillna("")
 
                 # =====================================================
                 # AGGRID
@@ -5230,7 +5234,7 @@ if "P&L" in tabs:
                 df_pnl["Group"] = ""
                 df_pnl.loc[df_pnl["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
                 df_pnl.loc[df_pnl["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
-                df_pnl["Group"] = df_pnl["Group"].replace("", method="ffill")
+                df_pnl["Group"] = df_pnl["Group"].replace("", np.nan).ffill().fillna("")
 
                 # ── AgGrid ─────────────────────────────────────────
                 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
