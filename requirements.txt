@@ -1,0 +1,9 @@
+streamlit
+pandas
+numpy
+openpyxl
+reportlab
+streamlit-aggrid
+dropbox
+requests
+num2words
