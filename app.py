@@ -4356,6 +4356,8 @@ if "Costs Centre" in tabs:
                 df_table["Annual/FY Total"] = df_table[month_cols].sum(axis=1)
 
                 rows_without_total = ["Direct Cost", "Indirect Cost", "FX Rate"]
+                
+                import numpy as np
                 df_table.loc[
                     df_table["Particulars"].isin(rows_without_total),
                     "Annual/FY Total"
