@@ -2116,7 +2116,6 @@ if "Master Data" in tabs:
             df_master["Month"] = df_master["Month"].dt.strftime("%b-%Y")
 
             # Ensure string columns have object dtype before assignment
-            # (pandas infers float64 for all-NaN columns loaded from Excel)
             for _str_col in ["GSTIN", "NET Term", "I/F", "USD/INR"]:
                 if _str_col not in df_master.columns:
                     df_master[_str_col] = ""
@@ -2540,7 +2539,7 @@ if "Master Data" in tabs:
                 update_on=["cellValueChanged"],
                 data_return_mode="AS_INPUT",
                 fit_columns_on_grid_load=True,
-                height=650,
+                height=750,
                 custom_css=custom_css
             )
             
@@ -4798,8 +4797,8 @@ if "P&L" in tabs:
                 for _mc in month_cols_pnl:
                     df_pnl[_mc] = pd.to_numeric(df_pnl[_mc], errors="coerce")
                     df_pnl[_mc] = df_pnl[_mc].round(2)
-                    # keep NaN for section-header rows; AgGrid formatter renders NaN as blank
-                    _header_mask = df_pnl["Particulars"].isin(["Direct Cost", "Indirect Cost", "FX Rate", ""])
+                    # Only blank out true section-header rows (no data); FX Rate has real values
+                    _header_mask = df_pnl["Particulars"].isin(["Direct Cost", "Indirect Cost", ""])
                     df_pnl.loc[_header_mask, _mc] = np.nan
                     
                 # Annual/FY Total
@@ -5052,7 +5051,7 @@ if "P&L" in tabs:
                                     disp = ""
                                 elif part == "FX Rate":
                                     try:
-                                        disp = f"{float(val):.2f}" if val != "" else ""
+                                        disp = f"{float(val):.2f}" if (val != "" and pd.notna(val)) else ""
                                     except:
                                         disp = ""
                                 else:
@@ -5176,7 +5175,7 @@ if "P&L" in tabs:
                                     pdf_row.append("")
                                 elif part == "FX Rate" or col_name == "FX Rate":
                                     try:
-                                        pdf_row.append(f"{float(val):.2f}" if val != "" else "")
+                                        pdf_row.append(f"{float(val):.2f}" if (val != "" and pd.notna(val)) else "")
                                     except:
                                         pdf_row.append("")
                                 else:
