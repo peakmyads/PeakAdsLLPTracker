@@ -1203,6 +1203,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ── Responsive design system ─────────────────────────────────────────────────
+from responsive import setup_responsive
+sc = setup_responsive()   # detects screen, injects CSS, returns ScreenConfig
+# Use sc.grid_height(base) wherever AgGrid height= appears below
+# ─────────────────────────────────────────────────────────────────────────────
+
 st.markdown("""
 <style>
 
@@ -1963,7 +1969,7 @@ if "List of Partners" in tabs:
                 df_display,
                 gridOptions=gridOptions,
                 allow_unsafe_jscode=True,
-                height=700,
+                height=sc.grid_height(700),
                 fit_columns_on_grid_load=True,
                 custom_css=custom_css
             )
@@ -2174,10 +2180,9 @@ if "Master Data" in tabs:
             df_master["C DSP $"] = pd.to_numeric(df_master["C DSP $"], errors="coerce").fillna(0)
             df_master["C SSP $"] = pd.to_numeric(df_master["C SSP $"], errors="coerce").fillna(0)
 
-            # Clean string columns — NaN from DB shows as "nan" in AgGrid
-            for _sc in ["GSTIN", "NET Term", "I/F", "USD/INR", "Category (DSP/SSP)"]:
-                if _sc in df_master.columns:
-                    df_master[_sc] = df_master[_sc].fillna("").astype(str).replace("nan", "").replace("None", "")
+            for _sc_col in ["GSTIN", "NET Term", "I/F", "USD/INR", "Category (DSP/SSP)"]:
+                if _sc_col in df_master.columns:
+                    df_master[_sc_col] = df_master[_sc_col].fillna("").astype(str).replace("nan", "").replace("None", "")
 
             month_comparator = JsCode("""
             function(date1, date2) {
@@ -2543,7 +2548,7 @@ if "Master Data" in tabs:
                 update_on=["cellValueChanged"],
                 data_return_mode="AS_INPUT",
                 fit_columns_on_grid_load=True,
-                height=750,
+                height=sc.grid_height(750),
                 custom_css=custom_css
             )
             
@@ -3035,7 +3040,7 @@ if "DSP (Customers)" in tabs:
         dsp_grid_response = AgGrid(
             df_dsp_grid,
             gridOptions=dsp_grid_options,
-            height=650,
+            height=sc.grid_height(650),
             update_mode=GridUpdateMode.MODEL_CHANGED,
             data_return_mode=DataReturnMode.AS_INPUT,
             allow_unsafe_jscode=True,
@@ -3745,7 +3750,7 @@ if "SSP (Vendors)" in tabs:
         ssp_grid_response = AgGrid(
             df_ssp_grid,
             gridOptions=ssp_grid_options,
-            height=650,
+            height=sc.grid_height(650),
             update_mode=GridUpdateMode.MODEL_CHANGED,
             data_return_mode=DataReturnMode.AS_INPUT,
             allow_unsafe_jscode=True,
@@ -4467,7 +4472,7 @@ if "Costs Centre" in tabs:
                     df_table,
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
-                    height=600,
+                    height=sc.grid_height(600),
                     fit_columns_on_grid_load=True,
                     custom_css=custom_css,
                     key="cost_centre_grid"
@@ -5337,7 +5342,7 @@ if "P&L" in tabs:
                     df_pnl,
                     gridOptions=pnl_grid_opts,
                     allow_unsafe_jscode=True,
-                    height=650,
+                    height=sc.grid_height(650),
                     fit_columns_on_grid_load=True,
                     custom_css=pnl_custom_css,
                     key="pnl_grid"
@@ -5965,7 +5970,7 @@ if "Edit Database" in tabs:
             grid_response = AgGrid(
                 df_edit,
                 gridOptions=gridOptions,
-                height=600,
+                height=sc.grid_height(600),
                 fit_columns_on_grid_load=True,
                 update_mode=GridUpdateMode.MODEL_CHANGED,
                 data_return_mode=DataReturnMode.AS_INPUT,
