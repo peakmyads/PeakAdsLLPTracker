@@ -7,3 +7,4 @@ streamlit-aggrid
 dropbox
 requests
 num2words
+plotly
