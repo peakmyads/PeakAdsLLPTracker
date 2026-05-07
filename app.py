@@ -2115,7 +2115,6 @@ if "Master Data" in tabs:
             df_master["Month"] = pd.to_datetime(df_master["Month"], format="%b-%Y", errors="coerce")
             df_master["Month"] = df_master["Month"].dt.strftime("%b-%Y")
 
-            # Ensure string columns have object dtype before assignment
             for _str_col in ["GSTIN", "NET Term", "I/F", "USD/INR"]:
                 if _str_col not in df_master.columns:
                     df_master[_str_col] = ""
@@ -2174,6 +2173,11 @@ if "Master Data" in tabs:
 
             df_master["C DSP $"] = pd.to_numeric(df_master["C DSP $"], errors="coerce").fillna(0)
             df_master["C SSP $"] = pd.to_numeric(df_master["C SSP $"], errors="coerce").fillna(0)
+
+            # Clean string columns — NaN from DB shows as "nan" in AgGrid
+            for _sc in ["GSTIN", "NET Term", "I/F", "USD/INR", "Category (DSP/SSP)"]:
+                if _sc in df_master.columns:
+                    df_master[_sc] = df_master[_sc].fillna("").astype(str).replace("nan", "").replace("None", "")
 
             month_comparator = JsCode("""
             function(date1, date2) {
@@ -2539,7 +2543,7 @@ if "Master Data" in tabs:
                 update_on=["cellValueChanged"],
                 data_return_mode="AS_INPUT",
                 fit_columns_on_grid_load=True,
-                height=650,
+                height=750,
                 custom_css=custom_css
             )
             
@@ -4356,10 +4360,7 @@ if "Costs Centre" in tabs:
                 df_table = pd.DataFrame(rows)
 
                 df_table["Annual/FY Total"] = df_table[month_cols].sum(axis=1)
-
-                # Cast to object before assigning non-numeric sentinel
                 df_table["Annual/FY Total"] = df_table["Annual/FY Total"].astype(object)
-
                 rows_without_total = ["Direct Cost", "Indirect Cost", "FX Rate"]
                 df_table.loc[
                     df_table["Particulars"].isin(rows_without_total),
@@ -4797,7 +4798,6 @@ if "P&L" in tabs:
                 for _mc in month_cols_pnl:
                     df_pnl[_mc] = pd.to_numeric(df_pnl[_mc], errors="coerce")
                     df_pnl[_mc] = df_pnl[_mc].round(2)
-                    # Only blank out true section-header rows (no data); FX Rate has real values
                     _header_mask = df_pnl["Particulars"].isin(["Direct Cost", "Indirect Cost", ""])
                     df_pnl.loc[_header_mask, _mc] = np.nan
                     
@@ -4817,8 +4817,6 @@ if "P&L" in tabs:
                 df_pnl.loc[df_pnl["Particulars"] == "Revenue INR", "Annual/FY Total"] = revenue_inr_fy_total
                 df_pnl.loc[df_pnl["Particulars"] == "Net Profit", "Annual/FY Total"] = net_profit_fy_total
 
-                # Replace NaN/nan strings with blank — only on object (string) columns
-                # fillna("") on float columns raises TypeError in pandas >=2.x
                 obj_cols = df_pnl.select_dtypes(include="object").columns
                 df_pnl[obj_cols] = df_pnl[obj_cols].fillna("").replace("nan", "")
 
