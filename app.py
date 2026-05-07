@@ -3900,6 +3900,7 @@ if "Costs Centre" in tabs:
 
             if st.button("+ Add Cost", key="add_cost_btn"):
                 st.session_state.open_cost_popup = True
+                st.session_state["_pak_dialog"] = "cost"
 
         # ====================================================
         # ADD COST POPUP
