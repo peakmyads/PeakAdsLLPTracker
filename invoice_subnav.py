@@ -40,7 +40,13 @@ _INV_SUBTABS = [
 def render_invoice_subnav() -> None:
     """
     Call once, immediately before the Invoice Manager st.tabs([...]) call.
+    Automatically hidden on mobile screens (< 768px) — too narrow to be useful.
     """
+
+    # Skip subnav on mobile — CSS also hides it, but skipping here saves render time
+    sw = int(st.session_state.get("_pak_screen_w") or 1280)
+    if sw > 0 and sw < 768:
+        return
 
     # ── Build pill buttons + dots HTML ──────────────────────────────────────
     pills_html = '<div class="inv-snav-title">Navigate</div>'
