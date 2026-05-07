@@ -2295,7 +2295,7 @@ if "Master Data" in tabs:
             category_value_getter = JsCode("""
             function(params) {
             
-                // 🚫 Do NOT apply to footer row
+                // Do NOT apply to footer row
                 if (params.node.rowPinned) {
                     return "";
                 }
