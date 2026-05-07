@@ -1203,8 +1203,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ── Responsive design system ─────────────────────────────────────────────────
 from responsive import setup_responsive
-sc = setup_responsive()
+sc = setup_responsive()   # detects screen, injects CSS, returns ScreenConfig
+# Use sc.grid_height(base) wherever AgGrid height= appears below
+# ─────────────────────────────────────────────────────────────────────────────
 
 st.markdown("""
 <style>
@@ -2180,6 +2183,8 @@ if "Master Data" in tabs:
             for _sc_col in ["GSTIN", "NET Term", "I/F", "USD/INR", "Category (DSP/SSP)"]:
                 if _sc_col in df_master.columns:
                     df_master[_sc_col] = df_master[_sc_col].fillna("").astype(str).replace("nan", "").replace("None", "")
+
+            month_comparator = JsCode("""
             function(date1, date2) {
                 function parseMonth(str) {
                     if (!str) return new Date(0);
@@ -2295,7 +2300,7 @@ if "Master Data" in tabs:
             category_value_getter = JsCode("""
             function(params) {
             
-                // Do NOT apply to footer row
+                // 🚫 Do NOT apply to footer row
                 if (params.node.rowPinned) {
                     return "";
                 }
@@ -3892,19 +3897,15 @@ if "Costs Centre" in tabs:
 
             if "open_cost_popup" not in st.session_state:
                 st.session_state.open_cost_popup = False
-            # Unified dialog mutex — only one dialog can be open per run
-            if "_pak_dialog" not in st.session_state:
-                st.session_state["_pak_dialog"] = None
 
             if st.button("+ Add Cost", key="add_cost_btn"):
                 st.session_state.open_cost_popup = True
-                st.session_state["_pak_dialog"] = "cost"
 
         # ====================================================
         # ADD COST POPUP
         # ====================================================
 
-        if st.session_state.get("_pak_dialog") == "cost":
+        if st.session_state.open_cost_popup:
 
             @st.dialog("Add New Cost")
             def add_cost_popup():
@@ -4080,7 +4081,6 @@ if "Costs Centre" in tabs:
                 with c2:
                     if st.button("Close", key="close_cost_popup"):
                         st.session_state.open_cost_popup = False
-                        st.session_state["_pak_dialog"] = None
                         st.rerun()
 
                 # -------------------------
@@ -4166,10 +4166,9 @@ if "Costs Centre" in tabs:
 
                     st.success("Cost Saved Successfully")
                     st.session_state.open_cost_popup = False
-                    st.session_state["_pak_dialog"] = None
                     st.rerun()
 
-            if st.session_state.get("_pak_dialog") == "cost":
+            if not st.session_state.get("_any_dialog_open", False):
                 add_cost_popup()
 
         # ====================================================
@@ -5225,10 +5224,11 @@ if "P&L" in tabs:
                     
                     
                 # Call the export dialog when button is clicked
-                if export_clicked_pnl and st.session_state.get("_pak_dialog") is None:
-                    st.session_state["_pak_dialog"] = "export"
+                if export_clicked_pnl:
+                    st.session_state["_any_dialog_open"] = True
+                    st.session_state.open_cost_popup = False  # close any other dialog
                     export_popup()
-                    st.session_state["_pak_dialog"] = None
+                    st.session_state["_any_dialog_open"] = False
                 
                 # ── Grouping ───────────────────────────────────────
                 df_pnl["Group"] = ""
