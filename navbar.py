@@ -29,6 +29,20 @@ import streamlit as st
 import streamlit.components.v1 as components
 from login import get_allowed_tabs
 
+# ── Responsive navbar widths ──────────────────────────────────────────────────
+def _get_nav_widths() -> tuple[int, int]:
+    """Return (collapsed_w, expanded_w) based on detected screen width."""
+    sw = int(st.session_state.get("_pak_screen_w") or 0)
+    if sw == 0:
+        return 46, 220        # safe default before detection fires
+    if sw < 768:
+        return 0, 190         # mobile: hidden by default, slide-in on hover
+    if sw < 1200:
+        return 36, 190        # tablet
+    if sw < 1920:
+        return 46, 220        # desktop (original)
+    return 52, 240            # large (32"+)
+
 # ── Logo loader ──────────────────────────────────────────────────────────────
 
 def _get_logo_b64() -> str:
@@ -71,11 +85,11 @@ TAB_ICONS = {
     "Edit Database"   : "🛠️",
 }
 
-CW = 46   # collapsed width  (px)
-EW = 220  # expanded width   (px)
-
 
 def render_navbar() -> None:
+
+    # ── Dynamic widths based on screen size ──────────────────────────────────
+    CW, EW = _get_nav_widths()
 
     # ── 1. LOGOUT HOOK ───────────────────────────────────────────────────────
     # A real Streamlit "Logout" button is placed inside st.sidebar.
