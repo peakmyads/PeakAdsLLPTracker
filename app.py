@@ -3905,270 +3905,271 @@ if "Costs Centre" in tabs:
         # ADD COST POPUP
         # ====================================================
 
-        @st.dialog("Add New Cost")
-        def add_cost_popup():
+        if st.session_state.open_cost_popup:
 
-            st.session_state.open_cost_popup = True   # keep alive while open
-            st.markdown("### Add Cost Details")
+            @st.dialog("Add New Cost")
+            def add_cost_popup():
 
-            cost_df = load_cost_centre().copy()
+                st.markdown("### Add Cost Details")
 
-            # -------------------------
-            # CATEGORY
-            # -------------------------
-            category = st.selectbox(
-                "Category",
-                ["Select", "Direct", "Indirect"],
-                key="cost_category"
-            )
+                cost_df = load_cost_centre().copy()
 
-            # -------------------------
-            # COST NAME (dynamic)
-            # -------------------------
-            if not cost_df.empty and category != "Select":
-                cost_names = sorted(
-                    cost_df[cost_df["Category"] == category]["Cost Name"]
-                    .dropna()
-                    .astype(str)
-                    .unique()
-                    .tolist()
-                )
-            else:
-                cost_names = []
-
-            cost_name_selected = st.selectbox(
-                "Cost Name",
-                ["Select"] + cost_names,
-                key="cost_name"
-            )
-
-            new_cost_name = st.text_input(
-                "Add New Cost Name (optional)",
-                key="new_cost_name"
-            )
-
-            cost_name = new_cost_name.strip() if new_cost_name.strip() else cost_name_selected
-
-            # -------------------------
-            # SUB COST (dynamic)
-            # -------------------------
-            if not cost_df.empty and category != "Select" and cost_name_selected != "Select":
-                sub_cost_list = sorted(
-                    cost_df[
-                        (cost_df["Category"] == category) &
-                        (cost_df["Cost Name"] == cost_name_selected)
-                    ]["Sub Cost"]
-                    .dropna()
-                    .astype(str)
-                    .unique()
-                    .tolist()
-                )
-            else:
-                sub_cost_list = []
-
-            sub_cost_selected = st.selectbox(
-                "Sub Cost",
-                ["Select"] + sub_cost_list,
-                key="sub_cost"
-            )
-
-            new_sub_cost = st.text_input(
-                "Add New Sub Cost (optional)",
-                key="new_sub_cost"
-            )
-
-            sub_cost = new_sub_cost.strip() if new_sub_cost.strip() else sub_cost_selected
-
-            # -------------------------
-            # FINANCIAL YEAR
-            # -------------------------
-            financial_year = st.selectbox(
-                "Financial Year",
-                fy_list,
-                index=0,
-                key="cost_fy"
-            )
-
-            # -------------------------
-            # MONTH LIST
-            # -------------------------
-            fy_start = int(financial_year.split("-")[0])
-
-            months = pd.date_range(
-                start=f"{fy_start}-04-01",
-                end=f"{fy_start+1}-03-31",
-                freq="MS"
-            )
-
-            month_options = ["Select"] + months.strftime("%b-%Y").tolist()
-
-            month = st.selectbox(
-                "Month",
-                options=month_options,
-                key="cost_month"
-            )
-
-            # -------------------------
-            # AUTO FX FETCH
-            # -------------------------
-            fx_rate_auto = get_fx_rate(month) if month != "Select" else 0.0
-
-            if "fx_rate" not in st.session_state:
-                st.session_state.fx_rate = fx_rate_auto
-
-            if st.session_state.get("last_month") != month:
-                st.session_state.fx_rate = fx_rate_auto
-                st.session_state.last_month = month
-
-            # -------------------------
-            # CURRENCY
-            # -------------------------
-            currency = st.selectbox(
-                "USD / INR",
-                ["Select", "USD", "INR"],
-                key="cost_currency"
-            )
-
-            amount_usd = 0.0
-            fx_rate = 0.0
-            amount_inr = 0.0
-
-            if currency == "USD":
-                amount_usd = st.number_input(
-                    "Amount $",
-                    min_value=0.0,
-                    step=0.01,
-                    key="amount_usd"
+                # -------------------------
+                # CATEGORY
+                # -------------------------
+                category = st.selectbox(
+                    "Category",
+                    ["Select", "Direct", "Indirect"],
+                    key="cost_category"
                 )
 
-                fx_rate = st.number_input(
-                    "FX Rate",
-                    value=float(st.session_state.fx_rate),
-                    step=0.01,
-                    format="%.4f",
-                    key="fx_rate"
+                # -------------------------
+                # COST NAME (dynamic)
+                # -------------------------
+                if not cost_df.empty and category != "Select":
+                    cost_names = sorted(
+                        cost_df[cost_df["Category"] == category]["Cost Name"]
+                        .dropna()
+                        .astype(str)
+                        .unique()
+                        .tolist()
+                    )
+                else:
+                    cost_names = []
+
+                cost_name_selected = st.selectbox(
+                    "Cost Name",
+                    ["Select"] + cost_names,
+                    key="cost_name"
                 )
 
-                amount_inr = round(amount_usd * fx_rate, 2)
-
-                st.number_input(
-                    "Auto Amount ₹",
-                    value=float(amount_inr),
-                    disabled=True,
-                    format="%.2f",
-                    key="auto_amount_inr"
+                new_cost_name = st.text_input(
+                    "Add New Cost Name (optional)",
+                    key="new_cost_name"
                 )
 
-            elif currency == "INR":
-                amount_inr = st.number_input(
-                    "Amount ₹",
-                    min_value=0.0,
-                    step=0.01,
-                    key="amount_inr"
+                cost_name = new_cost_name.strip() if new_cost_name.strip() else cost_name_selected
+
+                # -------------------------
+                # SUB COST (dynamic)
+                # -------------------------
+                if not cost_df.empty and category != "Select" and cost_name_selected != "Select":
+                    sub_cost_list = sorted(
+                        cost_df[
+                            (cost_df["Category"] == category) &
+                            (cost_df["Cost Name"] == cost_name_selected)
+                        ]["Sub Cost"]
+                        .dropna()
+                        .astype(str)
+                        .unique()
+                        .tolist()
+                    )
+                else:
+                    sub_cost_list = []
+
+                sub_cost_selected = st.selectbox(
+                    "Sub Cost",
+                    ["Select"] + sub_cost_list,
+                    key="sub_cost"
                 )
 
-                fx_rate = 0.0
+                new_sub_cost = st.text_input(
+                    "Add New Sub Cost (optional)",
+                    key="new_sub_cost"
+                )
+
+                sub_cost = new_sub_cost.strip() if new_sub_cost.strip() else sub_cost_selected
+
+                # -------------------------
+                # FINANCIAL YEAR
+                # -------------------------
+                financial_year = st.selectbox(
+                    "Financial Year",
+                    fy_list,
+                    index=0,
+                    key="cost_fy"
+                )
+
+                # -------------------------
+                # MONTH LIST
+                # -------------------------
+                fy_start = int(financial_year.split("-")[0])
+
+                months = pd.date_range(
+                    start=f"{fy_start}-04-01",
+                    end=f"{fy_start+1}-03-31",
+                    freq="MS"
+                )
+
+                month_options = ["Select"] + months.strftime("%b-%Y").tolist()
+
+                month = st.selectbox(
+                    "Month",
+                    options=month_options,
+                    key="cost_month"
+                )
+
+                # -------------------------
+                # AUTO FX FETCH
+                # -------------------------
+                fx_rate_auto = get_fx_rate(month) if month != "Select" else 0.0
+
+                if "fx_rate" not in st.session_state:
+                    st.session_state.fx_rate = fx_rate_auto
+
+                if st.session_state.get("last_month") != month:
+                    st.session_state.fx_rate = fx_rate_auto
+                    st.session_state.last_month = month
+
+                # -------------------------
+                # CURRENCY
+                # -------------------------
+                currency = st.selectbox(
+                    "USD / INR",
+                    ["Select", "USD", "INR"],
+                    key="cost_currency"
+                )
+
                 amount_usd = 0.0
+                fx_rate = 0.0
+                amount_inr = 0.0
 
-            st.divider()
+                if currency == "USD":
+                    amount_usd = st.number_input(
+                        "Amount $",
+                        min_value=0.0,
+                        step=0.01,
+                        key="amount_usd"
+                    )
 
-            c1, c2 = st.columns(2)
+                    fx_rate = st.number_input(
+                        "FX Rate",
+                        value=float(st.session_state.fx_rate),
+                        step=0.01,
+                        format="%.4f",
+                        key="fx_rate"
+                    )
 
-            with c1:
-                save_cost = st.button("Save Cost", key="save_cost")
+                    amount_inr = round(amount_usd * fx_rate, 2)
 
-            with c2:
-                if st.button("Close", key="close_cost_popup"):
-                    st.session_state.open_cost_popup = False
-                    st.rerun()
+                    st.number_input(
+                        "Auto Amount ₹",
+                        value=float(amount_inr),
+                        disabled=True,
+                        format="%.2f",
+                        key="auto_amount_inr"
+                    )
 
-            # -------------------------
-            # SAVE BUTTON
-            # -------------------------
-            if save_cost:
+                elif currency == "INR":
+                    amount_inr = st.number_input(
+                        "Amount ₹",
+                        min_value=0.0,
+                        step=0.01,
+                        key="amount_inr"
+                    )
 
-                if category == "Select":
-                    st.error("Please select Category")
-                    return
+                    fx_rate = 0.0
+                    amount_usd = 0.0
 
-                if not cost_name or cost_name == "Select":
-                    st.error("Please select or enter Cost Name")
-                    return
+                st.divider()
 
-                if not sub_cost or sub_cost == "Select":
-                    st.error("Please select or enter Sub Cost")
-                    return
+                c1, c2 = st.columns(2)
 
-                if month == "Select":
-                    st.error("Please select Month")
-                    return
+                with c1:
+                    save_cost = st.button("Save Cost", key="save_cost")
 
-                if currency == "Select":
-                    st.error("Please select Currency")
-                    return
+                with c2:
+                    if st.button("Close", key="close_cost_popup"):
+                        st.session_state.open_cost_popup = False
+                        st.rerun()
 
-                conn = get_db_connection()
-                cursor = conn.cursor()
+                # -------------------------
+                # SAVE BUTTON
+                # -------------------------
+                if save_cost:
 
-                # Duplicate check
-                cursor.execute("""
-                    SELECT COUNT(*) FROM cost_centre
-                    WHERE category = ?
-                      AND cost_name = ?
-                      AND sub_cost = ?
-                      AND financial_year = ?
-                      AND month = ?
-                """, (
-                    category,
-                    cost_name,
-                    sub_cost,
-                    financial_year,
-                    month
-                ))
+                    if category == "Select":
+                        st.error("Please select Category")
+                        return
 
-                duplicate_count = cursor.fetchone()[0]
+                    if not cost_name or cost_name == "Select":
+                        st.error("Please select or enter Cost Name")
+                        return
 
-                if duplicate_count > 0:
-                    conn.close()
-                    st.error("This cost already exists for the selected month.")
-                    return
+                    if not sub_cost or sub_cost == "Select":
+                        st.error("Please select or enter Sub Cost")
+                        return
 
-                cursor.execute("""
-                    INSERT INTO cost_centre (
+                    if month == "Select":
+                        st.error("Please select Month")
+                        return
+
+                    if currency == "Select":
+                        st.error("Please select Currency")
+                        return
+
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+
+                    # Duplicate check
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM cost_centre
+                        WHERE category = ?
+                          AND cost_name = ?
+                          AND sub_cost = ?
+                          AND financial_year = ?
+                          AND month = ?
+                    """, (
                         category,
                         cost_name,
                         sub_cost,
                         financial_year,
-                        month,
+                        month
+                    ))
+
+                    duplicate_count = cursor.fetchone()[0]
+
+                    if duplicate_count > 0:
+                        conn.close()
+                        st.error("This cost already exists for the selected month.")
+                        return
+
+                    cursor.execute("""
+                        INSERT INTO cost_centre (
+                            category,
+                            cost_name,
+                            sub_cost,
+                            financial_year,
+                            month,
+                            currency,
+                            amount_usd,
+                            fx_rate,
+                            amount_inr
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        category,
+                        cost_name,
+                        sub_cost,
+                        financial_year,
+                        str(month),   # ✅ FORCE STRING
                         currency,
-                        amount_usd,
-                        fx_rate,
-                        amount_inr
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    category,
-                    cost_name,
-                    sub_cost,
-                    financial_year,
-                    str(month),   # ✅ FORCE STRING
-                    currency,
-                    float(amount_usd),
-                    float(fx_rate),
-                    float(amount_inr)
-                ))
+                        float(amount_usd),
+                        float(fx_rate),
+                        float(amount_inr)
+                    ))
 
-                conn.commit()
-                conn.close()
+                    conn.commit()
+                    conn.close()
 
-                load_cost_centre.clear()
-                st.session_state.cost_df = load_cost_centre()
+                    load_cost_centre.clear()
+                    st.session_state.cost_df = load_cost_centre()
 
-                st.success("Cost Saved Successfully")
-                st.session_state.open_cost_popup = False
-                st.rerun()
+                    st.success("Cost Saved Successfully")
+                    st.session_state.open_cost_popup = False
+                    st.rerun()
 
-        if st.session_state.get("open_cost_popup", False):
-            add_cost_popup()
+            if not st.session_state.get("_any_dialog_open", False):
+                add_cost_popup()
 
         # ====================================================
         # COST TABLE
@@ -4827,178 +4828,300 @@ if "P&L" in tabs:
                 # -----------------------------
                 # DEFINE DIALOG FIRST (IMPORTANT)
                 # -----------------------------
-            @st.dialog("Export")
-            def export_popup():
-            
-                # Month picker (full width, shown only when needed)
-                if export_format_pnl == "For Month":
-                    pnl_month_options = [c for c in df_pnl.columns
-                                         if c not in ("Particulars", "Currency", "Group", "Annual/FY Total")
-                                         and not str(c).startswith("::")
-                                         and str(c).strip() != ""]
-                    sel_month_persistent = st.selectbox(
-                        "Select Month to Export",
-                        pnl_month_options,
-                        key="pnl_export_month_sel"
-                    )
-                else:
-                    sel_month_persistent = None
-
-                st.divider()
-                # ── DOWNLOAD BUTTONS (full width) ──────────────────────
-
-                # ── Helper: build styled openpyxl workbook ──────
-                def _build_pnl_xlsx(df_export, sheet_title="P&L"):
-                    from openpyxl import Workbook
-                    from openpyxl.styles import (
-                        Font, PatternFill, Alignment, Border, Side
-                    )
-                    import math
-
-                    wb = Workbook()
-                    ws = wb.active
-                    ws.title = sheet_title[:31]
-
-                    header_fill   = PatternFill("solid", fgColor="003366")
-                    header_font   = Font(bold=True, color="FFFFFF", name="Arial", size=10)
-                    revenue_fill  = PatternFill("solid", fgColor="9370DB")
-                    rev_inr_fill  = PatternFill("solid", fgColor="800080")
-                    pubs_fill     = PatternFill("solid", fgColor="B30000")
-                    pubs_inr_fill = PatternFill("solid", fgColor="670000")
-                    net_usd_fill  = PatternFill("solid", fgColor="008000")
-                    net_inr_fill  = PatternFill("solid", fgColor="1B5E20")
-                    direct_fill   = PatternFill("solid", fgColor="FFD0D7")
-                    grand_fill    = PatternFill("solid", fgColor="EF871E")
-                    total_fill    = PatternFill("solid", fgColor="003366")
-                    profit_fill   = PatternFill("solid", fgColor="1B5E20")
-                    white_font    = Font(bold=True, color="FFFFFF", name="Arial", size=10)
-                    black_font    = Font(bold=True, color="000000", name="Arial", size=10)
-                    normal_font   = Font(name="Arial", size=10)
-                    thin_side     = Side(style="thin", color="CCCCCC")
-                    thin_border   = Border(bottom=thin_side)
-
-                    cols = [c for c in df_export.columns if not str(c).startswith("::")]
-
-                    # Header row
-                    for ci, col_name in enumerate(cols, start=1):
-                        cell = ws.cell(row=1, column=ci, value=col_name)
-                        cell.fill      = header_fill
-                        cell.font      = header_font
-                        cell.alignment = Alignment(horizontal="center", vertical="center")
-
-                    row_style_map = {
-                        "Revenue":                  (revenue_fill,  white_font),
-                        "Revenue INR":              (rev_inr_fill,  white_font),
-                        "Pubs Cost":                (pubs_fill,     white_font),
-                        "Pubs Cost INR":            (pubs_inr_fill, white_font),
-                        "Netted USD":               (net_usd_fill,  white_font),
-                        "Netted INR":               (net_inr_fill,  white_font),
-                        "Direct Cost":              (direct_fill,   black_font),
-                        "Indirect Cost":            (direct_fill,   black_font),
-                        "Grand Total Cost":         (grand_fill,    white_font),
-                        "Net Profit":               (profit_fill,   white_font),
-                        "Total USD":                (total_fill,    white_font),
-                        "Direct Cost INR":          (total_fill,    white_font),
-                        "Total Direct Cost INR":    (total_fill,    white_font),
-                        "Total Indirect Cost INR":  (total_fill,    white_font),
-                    }
-
-                    currency_cols = [c for c in cols if c not in ("Particulars", "Currency", "Group")]
-                    usd_fmt = u'_($* #,##0.00_);_($* (#,##0.00);_($* "-"??_);_(@_)'
-                    inr_fmt = u'_(\u20b9* #,##0.00_);_(\u20b9* (#,##0.00);_(\u20b9* "-"??_);_(@_)'
-                    fx_fmt  = '#,##0.00'
-
-                    def _is_blank(v):
-                        if v is None or v == "":
-                            return True
-                        try:
-                            if math.isnan(float(v)):
-                                return True
-                        except (ValueError, TypeError):
-                            pass
-                        if str(v).strip().lower() == "nan":
-                            return True
-                        return False
-
-                    for ri, (_, row_data) in enumerate(df_export.iterrows(), start=2):
-                        particular = str(row_data.get("Particulars", ""))
-                        currency   = str(row_data.get("Currency", ""))
-                        fill, font = row_style_map.get(particular, (None, normal_font))
-
-                        for ci, col_name in enumerate(cols, start=1):
-                            val  = row_data[col_name]
-                            cell = ws.cell(row=ri, column=ci)
-
-                            if col_name in currency_cols:
-                                if _is_blank(val) or particular in ("Direct Cost", "Indirect Cost", ""):
-                                    cell.value = None
-                                elif particular == "FX Rate":
-                                    try:
-                                        cell.value = round(float(val), 2)
-                                        cell.number_format = fx_fmt
-                                    except (ValueError, TypeError):
-                                        cell.value = None
-                                else:
-                                    try:
-                                        cell.value = round(float(val), 2)
-                                        cell.number_format = usd_fmt if currency == "USD" else inr_fmt
-                                    except (ValueError, TypeError):
-                                        cell.value = None
-                            else:
-                                cell.value = None if _is_blank(val) else str(val)
-
-                            if fill:
-                                cell.fill = fill
-                            cell.font      = font
-                            cell.alignment = Alignment(
-                                horizontal="right" if col_name in currency_cols else "left",
-                                vertical="center"
-                            )
-                            cell.border = thin_border
-
-                    # Column widths
-                    ws.column_dimensions["A"].width = 30
-                    ws.column_dimensions["B"].width = 8
-                    for ci in range(3, len(cols) + 1):
-                        ws.column_dimensions[
-                            ws.cell(row=1, column=ci).column_letter
-                        ].width = 16
-
-                    ws.freeze_panes = "C2"
-                    return wb
-
-                # ── "For Month": pick one month ─────────────────
-                if export_format_pnl == "For Month":
-
-                    sel_month = st.session_state.get("pnl_export_month_sel", None)  # ✅ renamed back to sel_month
-                    if not sel_month:
-                        st.warning("Please select a month above.")
+                @st.dialog("Export")
+                def export_popup():
+                
+                    # Month picker (full width, shown only when needed)
+                    if export_format_pnl == "For Month":
+                        pnl_month_options = [c for c in df_pnl.columns
+                                             if c not in ("Particulars", "Currency", "Group", "Annual/FY Total")
+                                             and not str(c).startswith("::")
+                                             and str(c).strip() != ""]
+                        sel_month_persistent = st.selectbox(
+                            "Select Month to Export",
+                            pnl_month_options,
+                            key="pnl_export_month_sel"
+                        )
                     else:
-                        df_month_export = df_pnl[["Particulars", "Currency", sel_month]].copy()  # ✅ build it here
+                        sel_month_persistent = None
 
-                        # ── XLSX ─────────────────────────────────
-                        wb_m = _build_pnl_xlsx(df_month_export, sheet_title=sel_month)
-                        buf_m = io.BytesIO()
-                        wb_m.save(buf_m)
-                        buf_m.seek(0)
+                    st.divider()
+                    # ── DOWNLOAD BUTTONS (full width) ──────────────────────
+
+                    # ── Helper: build styled openpyxl workbook ──────
+                    def _build_pnl_xlsx(df_export, sheet_title="P&L"):
+                        from openpyxl import Workbook
+                        from openpyxl.styles import (
+                            Font, PatternFill, Alignment, Border, Side
+                        )
+                        import math
+
+                        wb = Workbook()
+                        ws = wb.active
+                        ws.title = sheet_title[:31]
+
+                        header_fill   = PatternFill("solid", fgColor="003366")
+                        header_font   = Font(bold=True, color="FFFFFF", name="Arial", size=10)
+                        revenue_fill  = PatternFill("solid", fgColor="9370DB")
+                        rev_inr_fill  = PatternFill("solid", fgColor="800080")
+                        pubs_fill     = PatternFill("solid", fgColor="B30000")
+                        pubs_inr_fill = PatternFill("solid", fgColor="670000")
+                        net_usd_fill  = PatternFill("solid", fgColor="008000")
+                        net_inr_fill  = PatternFill("solid", fgColor="1B5E20")
+                        direct_fill   = PatternFill("solid", fgColor="FFD0D7")
+                        grand_fill    = PatternFill("solid", fgColor="EF871E")
+                        total_fill    = PatternFill("solid", fgColor="003366")
+                        profit_fill   = PatternFill("solid", fgColor="1B5E20")
+                        white_font    = Font(bold=True, color="FFFFFF", name="Arial", size=10)
+                        black_font    = Font(bold=True, color="000000", name="Arial", size=10)
+                        normal_font   = Font(name="Arial", size=10)
+                        thin_side     = Side(style="thin", color="CCCCCC")
+                        thin_border   = Border(bottom=thin_side)
+
+                        cols = [c for c in df_export.columns if not str(c).startswith("::")]
+
+                        # Header row
+                        for ci, col_name in enumerate(cols, start=1):
+                            cell = ws.cell(row=1, column=ci, value=col_name)
+                            cell.fill      = header_fill
+                            cell.font      = header_font
+                            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+                        row_style_map = {
+                            "Revenue":                  (revenue_fill,  white_font),
+                            "Revenue INR":              (rev_inr_fill,  white_font),
+                            "Pubs Cost":                (pubs_fill,     white_font),
+                            "Pubs Cost INR":            (pubs_inr_fill, white_font),
+                            "Netted USD":               (net_usd_fill,  white_font),
+                            "Netted INR":               (net_inr_fill,  white_font),
+                            "Direct Cost":              (direct_fill,   black_font),
+                            "Indirect Cost":            (direct_fill,   black_font),
+                            "Grand Total Cost":         (grand_fill,    white_font),
+                            "Net Profit":               (profit_fill,   white_font),
+                            "Total USD":                (total_fill,    white_font),
+                            "Direct Cost INR":          (total_fill,    white_font),
+                            "Total Direct Cost INR":    (total_fill,    white_font),
+                            "Total Indirect Cost INR":  (total_fill,    white_font),
+                        }
+
+                        currency_cols = [c for c in cols if c not in ("Particulars", "Currency", "Group")]
+                        usd_fmt = u'_($* #,##0.00_);_($* (#,##0.00);_($* "-"??_);_(@_)'
+                        inr_fmt = u'_(\u20b9* #,##0.00_);_(\u20b9* (#,##0.00);_(\u20b9* "-"??_);_(@_)'
+                        fx_fmt  = '#,##0.00'
+
+                        def _is_blank(v):
+                            if v is None or v == "":
+                                return True
+                            try:
+                                if math.isnan(float(v)):
+                                    return True
+                            except (ValueError, TypeError):
+                                pass
+                            if str(v).strip().lower() == "nan":
+                                return True
+                            return False
+
+                        for ri, (_, row_data) in enumerate(df_export.iterrows(), start=2):
+                            particular = str(row_data.get("Particulars", ""))
+                            currency   = str(row_data.get("Currency", ""))
+                            fill, font = row_style_map.get(particular, (None, normal_font))
+
+                            for ci, col_name in enumerate(cols, start=1):
+                                val  = row_data[col_name]
+                                cell = ws.cell(row=ri, column=ci)
+
+                                if col_name in currency_cols:
+                                    if _is_blank(val) or particular in ("Direct Cost", "Indirect Cost", ""):
+                                        cell.value = None
+                                    elif particular == "FX Rate":
+                                        try:
+                                            cell.value = round(float(val), 2)
+                                            cell.number_format = fx_fmt
+                                        except (ValueError, TypeError):
+                                            cell.value = None
+                                    else:
+                                        try:
+                                            cell.value = round(float(val), 2)
+                                            cell.number_format = usd_fmt if currency == "USD" else inr_fmt
+                                        except (ValueError, TypeError):
+                                            cell.value = None
+                                else:
+                                    cell.value = None if _is_blank(val) else str(val)
+
+                                if fill:
+                                    cell.fill = fill
+                                cell.font      = font
+                                cell.alignment = Alignment(
+                                    horizontal="right" if col_name in currency_cols else "left",
+                                    vertical="center"
+                                )
+                                cell.border = thin_border
+
+                        # Column widths
+                        ws.column_dimensions["A"].width = 30
+                        ws.column_dimensions["B"].width = 8
+                        for ci in range(3, len(cols) + 1):
+                            ws.column_dimensions[
+                                ws.cell(row=1, column=ci).column_letter
+                            ].width = 16
+
+                        ws.freeze_panes = "C2"
+                        return wb
+
+                    # ── "For Month": pick one month ─────────────────
+                    if export_format_pnl == "For Month":
+
+                        sel_month = st.session_state.get("pnl_export_month_sel", None)  # ✅ renamed back to sel_month
+                        if not sel_month:
+                            st.warning("Please select a month above.")
+                        else:
+                            df_month_export = df_pnl[["Particulars", "Currency", sel_month]].copy()  # ✅ build it here
+
+                            # ── XLSX ─────────────────────────────────
+                            wb_m = _build_pnl_xlsx(df_month_export, sheet_title=sel_month)
+                            buf_m = io.BytesIO()
+                            wb_m.save(buf_m)
+                            buf_m.seek(0)
+                            st.download_button(
+                                label=f"⬇️ Download XLSX – {sel_month}",
+                                data=buf_m,
+                                file_name=f"PnL_{selected_fy_pnl}_{sel_month}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"pnl_dl_xlsx_month_{sel_month}",
+                                use_container_width=True
+                            )
+
+                            # ── PDF ──────────────────────────────────
+                            from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
+                            from reportlab.lib.styles import getSampleStyleSheet
+                            from reportlab.lib import colors
+                            from reportlab.lib.pagesizes import A4, landscape
+                            import math
+
+                            def _fmt_pdf_val(v, currency):
+                                """Format a cell value for PDF: blank for nan/empty, currency symbol + 2dp for numbers."""
+                                if v is None or v == "":
+                                    return ""
+                                try:
+                                    fv = float(v)
+                                    if math.isnan(fv):
+                                        return ""
+                                    formatted = f"{fv:,.2f}"
+                                    if currency == "USD":
+                                        return f"${formatted}"
+                                    elif currency == "INR":
+                                        return f"Rs.{formatted}"
+                                    return formatted
+                                except (ValueError, TypeError):
+                                    s = str(v).strip()
+                                    return "" if s.lower() == "nan" else s
+
+                            _rcmap = {
+                                "Revenue":                  (colors.HexColor("#9370DB"), colors.white),
+                                "Revenue INR":              (colors.HexColor("#800080"), colors.white),
+                                "Pubs Cost":                (colors.HexColor("#B30000"), colors.white),
+                                "Pubs Cost INR":            (colors.HexColor("#670000"), colors.white),
+                                "Netted USD":               (colors.HexColor("#008000"), colors.white),
+                                "Netted INR":               (colors.HexColor("#1B5E20"), colors.white),
+                                "Direct Cost":              (colors.HexColor("#FFD0D7"), colors.black),
+                                "Indirect Cost":            (colors.HexColor("#FFD0D7"), colors.black),
+                                "Grand Total Cost":         (colors.HexColor("#EF871E"), colors.white),
+                                "Net Profit":               (colors.HexColor("#1B5E20"), colors.white),
+                                "Total USD":                (colors.HexColor("#003366"), colors.white),
+                                "Direct Cost INR":          (colors.HexColor("#003366"), colors.white),
+                                "Total Direct Cost INR":    (colors.HexColor("#003366"), colors.white),
+                                "Total Indirect Cost INR":  (colors.HexColor("#003366"), colors.white),
+                            }
+
+                            buf_pdf_m = io.BytesIO()
+                            doc = SimpleDocTemplate(buf_pdf_m, pagesize=landscape(A4),
+                                                    leftMargin=20, rightMargin=20, topMargin=30, bottomMargin=20)
+                            styles = getSampleStyleSheet()
+                            elements = []
+                            elements.append(Paragraph(f"P&L Report \u2013 {sel_month} ({selected_fy_pnl}) - PeakAds LLP", styles["Title"]))
+                            elements.append(Spacer(1, 10))
+
+                            # Build header row
+                            pdf_header = ["Particulars", "Currency", sel_month]
+                            pdf_data   = [pdf_header]
+                            for _, row_data in df_month_export.iterrows():
+                                part = str(row_data.get("Particulars", ""))
+                                cur_raw = row_data.get("Currency", "")
+                                cur = "" if str(cur_raw).strip().lower() == "nan" else str(cur_raw)
+                                val  = row_data.get(sel_month, "")
+                                # blank for section headers
+                                if part in ("Direct Cost", "Indirect Cost", ""):
+                                    disp = ""
+                                elif part == "FX Rate":
+                                    try:
+                                        disp = f"{float(val):.2f}" if (val != "" and pd.notna(val)) else ""
+                                    except:
+                                        disp = ""
+                                else:
+                                    disp = _fmt_pdf_val(val, cur)
+                                pdf_data.append([part, cur, disp])
+
+                            table_style_m = [
+                                ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor("#003366")),
+                                ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
+                                ("FONTNAME",    (0, 0), (-1, -1), "Helvetica"),
+                                ("FONTSIZE",    (0, 0), (-1, -1), 8),
+                                ("GRID",        (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
+                                ("ALIGN",       (2, 0), (-1, -1), "RIGHT"),
+                                ("ALIGN",       (0, 0), (1, -1), "LEFT"),
+                                ("RIGHTPADDING", (2, 0), (-1, -1), 6),
+                                ("LEFTPADDING",  (2, 0), (-1, -1), 4),
+                                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
+                            ]
+                            for ri, row_vals in enumerate(pdf_data[1:], start=1):
+                                part = str(row_vals[0])
+                                if part in _rcmap:
+                                    bg, tc = _rcmap[part]
+                                    table_style_m.append(("BACKGROUND", (0, ri), (-1, ri), bg))
+                                    table_style_m.append(("TEXTCOLOR",  (0, ri), (-1, ri), tc))
+
+                            tbl_m = Table(pdf_data, colWidths=[160, 45, 130])
+                            tbl_m.setStyle(table_style_m)
+                            elements.append(tbl_m)
+                            doc.build(elements)
+                            buf_pdf_m.seek(0)
+
+                            st.download_button(
+                                label=f"⬇️ Download PDF – {sel_month}",
+                                data=buf_pdf_m,
+                                file_name=f"PnL_{selected_fy_pnl}_{sel_month}.pdf",
+                                mime="application/pdf",
+                                key=f"pnl_dl_pdf_month_{sel_month}",
+                                use_container_width=True
+                            )
+
+                    # ── "For Year (Monthwise)": all months ──────────
+                    else:
+
+                        df_year_export = df_pnl.drop(columns=["Group"], errors="ignore").copy()
+
+                        # ── XLSX ─────────────────────────────────────
+                        wb_y = _build_pnl_xlsx(df_year_export, sheet_title=f"PnL {selected_fy_pnl}")
+                        buf_y = io.BytesIO()
+                        wb_y.save(buf_y)
+                        buf_y.seek(0)
                         st.download_button(
-                            label=f"⬇️ Download XLSX – {sel_month}",
-                            data=buf_m,
-                            file_name=f"PnL_{selected_fy_pnl}_{sel_month}.xlsx",
+                            label=f"⬇️ Download XLSX – Full Year {selected_fy_pnl}",
+                            data=buf_y,
+                            file_name=f"PnL_{selected_fy_pnl}_Monthwise.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"pnl_dl_xlsx_month_{sel_month}",
+                            key="pnl_dl_xlsx_year",
                             use_container_width=True
                         )
-
-                        # ── PDF ──────────────────────────────────
+                        
+                        # ── PDF ──────────────────────────────────────
                         from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
                         from reportlab.lib.styles import getSampleStyleSheet
                         from reportlab.lib import colors
                         from reportlab.lib.pagesizes import A4, landscape
                         import math
 
-                        def _fmt_pdf_val(v, currency):
-                            """Format a cell value for PDF: blank for nan/empty, currency symbol + 2dp for numbers."""
+                        def _fmt_pdf_val_y(v, currency):
                             if v is None or v == "":
                                 return ""
                             try:
@@ -5015,7 +5138,7 @@ if "P&L" in tabs:
                                 s = str(v).strip()
                                 return "" if s.lower() == "nan" else s
 
-                        _rcmap = {
+                        _rcmap_y = {
                             "Revenue":                  (colors.HexColor("#9370DB"), colors.white),
                             "Revenue INR":              (colors.HexColor("#800080"), colors.white),
                             "Pubs Cost":                (colors.HexColor("#B30000"), colors.white),
@@ -5032,316 +5155,198 @@ if "P&L" in tabs:
                             "Total Indirect Cost INR":  (colors.HexColor("#003366"), colors.white),
                         }
 
-                        buf_pdf_m = io.BytesIO()
-                        doc = SimpleDocTemplate(buf_pdf_m, pagesize=landscape(A4),
-                                                leftMargin=20, rightMargin=20, topMargin=30, bottomMargin=20)
-                        styles = getSampleStyleSheet()
-                        elements = []
-                        elements.append(Paragraph(f"P&L Report \u2013 {sel_month} ({selected_fy_pnl}) - PeakAds LLP", styles["Title"]))
-                        elements.append(Spacer(1, 10))
+                        all_cols_y = [c for c in df_year_export.columns if not str(c).startswith("::")]
+                        num_cols_y = [c for c in all_cols_y if c not in ("Particulars", "Currency")]
 
-                        # Build header row
-                        pdf_header = ["Particulars", "Currency", sel_month]
-                        pdf_data   = [pdf_header]
-                        for _, row_data in df_month_export.iterrows():
+                        buf_pdf_y = io.BytesIO()
+                        doc_y = SimpleDocTemplate(buf_pdf_y, pagesize=landscape(A4),
+                                                  leftMargin=10, rightMargin=10, topMargin=20, bottomMargin=15)
+                        styles_y = getSampleStyleSheet()
+                        elements_y = []
+                        elements_y.append(Paragraph(f"P&L Report \u2013 Full Year {selected_fy_pnl} (Monthwise) - PeakAds LLP", styles_y["Title"]))
+                        elements_y.append(Spacer(1, 8))
+
+                        pdf_data_y = [all_cols_y]
+                        for _, row_data in df_year_export.iterrows():
                             part = str(row_data.get("Particulars", ""))
                             cur_raw = row_data.get("Currency", "")
                             cur = "" if str(cur_raw).strip().lower() == "nan" else str(cur_raw)
-                            val  = row_data.get(sel_month, "")
-                            # blank for section headers
-                            if part in ("Direct Cost", "Indirect Cost", ""):
-                                disp = ""
-                            elif part == "FX Rate":
-                                try:
-                                    disp = f"{float(val):.2f}" if (val != "" and pd.notna(val)) else ""
-                                except:
-                                    disp = ""
-                            else:
-                                disp = _fmt_pdf_val(val, cur)
-                            pdf_data.append([part, cur, disp])
+                            pdf_row = [part, cur]
+                            for col_name in num_cols_y:
+                                val = row_data.get(col_name, "")
+                                if part in ("Direct Cost", "Indirect Cost", ""):
+                                    pdf_row.append("")
+                                elif part == "FX Rate" or col_name == "FX Rate":
+                                    try:
+                                        pdf_row.append(f"{float(val):.2f}" if (val != "" and pd.notna(val)) else "")
+                                    except:
+                                        pdf_row.append("")
+                                else:
+                                    pdf_row.append(_fmt_pdf_val_y(val, cur))
+                            pdf_data_y.append(pdf_row)
 
-                        table_style_m = [
+                        table_style_y = [
                             ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor("#003366")),
                             ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
                             ("FONTNAME",    (0, 0), (-1, -1), "Helvetica"),
-                            ("FONTSIZE",    (0, 0), (-1, -1), 8),
+                            ("FONTSIZE",    (0, 0), (-1, -1), 6),
                             ("GRID",        (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
                             ("ALIGN",       (2, 0), (-1, -1), "RIGHT"),
                             ("ALIGN",       (0, 0), (1, -1), "LEFT"),
-                            ("RIGHTPADDING", (2, 0), (-1, -1), 6),
-                            ("LEFTPADDING",  (2, 0), (-1, -1), 4),
+                            ("RIGHTPADDING", (2, 0), (-1, -1), 4),
+                            ("LEFTPADDING",  (2, 0), (-1, -1), 2),
                             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
                         ]
-                        for ri, row_vals in enumerate(pdf_data[1:], start=1):
+                        for ri, row_vals in enumerate(pdf_data_y[1:], start=1):
                             part = str(row_vals[0])
-                            if part in _rcmap:
-                                bg, tc = _rcmap[part]
-                                table_style_m.append(("BACKGROUND", (0, ri), (-1, ri), bg))
-                                table_style_m.append(("TEXTCOLOR",  (0, ri), (-1, ri), tc))
+                            if part in _rcmap_y:
+                                bg, tc = _rcmap_y[part]
+                                table_style_y.append(("BACKGROUND", (0, ri), (-1, ri), bg))
+                                table_style_y.append(("TEXTCOLOR",  (0, ri), (-1, ri), tc))
 
-                        tbl_m = Table(pdf_data, colWidths=[160, 45, 130])
-                        tbl_m.setStyle(table_style_m)
-                        elements.append(tbl_m)
-                        doc.build(elements)
-                        buf_pdf_m.seek(0)
+                        num_data_cols = len(all_cols_y)
+                        fixed_widths = [115, 28] + [52] * (num_data_cols - 2)
+
+                        tbl_y = Table(pdf_data_y, colWidths=fixed_widths)
+                        tbl_y.setStyle(table_style_y)
+                        elements_y.append(tbl_y)
+                        doc_y.build(elements_y)
+                        buf_pdf_y.seek(0)
 
                         st.download_button(
-                            label=f"⬇️ Download PDF – {sel_month}",
-                            data=buf_pdf_m,
-                            file_name=f"PnL_{selected_fy_pnl}_{sel_month}.pdf",
+                            label=f"⬇️ Download PDF – Full Year {selected_fy_pnl}",
+                            data=buf_pdf_y,
+                            file_name=f"PnL_{selected_fy_pnl}_Monthwise.pdf",
                             mime="application/pdf",
-                            key=f"pnl_dl_pdf_month_{sel_month}",
+                            key="pnl_dl_pdf_year",
                             use_container_width=True
                         )
-
-                # ── "For Year (Monthwise)": all months ──────────
-                else:
-
-                    df_year_export = df_pnl.drop(columns=["Group"], errors="ignore").copy()
-
-                    # ── XLSX ─────────────────────────────────────
-                    wb_y = _build_pnl_xlsx(df_year_export, sheet_title=f"PnL {selected_fy_pnl}")
-                    buf_y = io.BytesIO()
-                    wb_y.save(buf_y)
-                    buf_y.seek(0)
-                    st.download_button(
-                        label=f"⬇️ Download XLSX – Full Year {selected_fy_pnl}",
-                        data=buf_y,
-                        file_name=f"PnL_{selected_fy_pnl}_Monthwise.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="pnl_dl_xlsx_year",
-                        use_container_width=True
-                    )
-                    
-                    # ── PDF ──────────────────────────────────────
-                    from reportlab.platypus import SimpleDocTemplate, Table, Paragraph, Spacer
-                    from reportlab.lib.styles import getSampleStyleSheet
-                    from reportlab.lib import colors
-                    from reportlab.lib.pagesizes import A4, landscape
-                    import math
-
-                    def _fmt_pdf_val_y(v, currency):
-                        if v is None or v == "":
-                            return ""
-                        try:
-                            fv = float(v)
-                            if math.isnan(fv):
-                                return ""
-                            formatted = f"{fv:,.2f}"
-                            if currency == "USD":
-                                return f"${formatted}"
-                            elif currency == "INR":
-                                return f"Rs.{formatted}"
-                            return formatted
-                        except (ValueError, TypeError):
-                            s = str(v).strip()
-                            return "" if s.lower() == "nan" else s
-
-                    _rcmap_y = {
-                        "Revenue":                  (colors.HexColor("#9370DB"), colors.white),
-                        "Revenue INR":              (colors.HexColor("#800080"), colors.white),
-                        "Pubs Cost":                (colors.HexColor("#B30000"), colors.white),
-                        "Pubs Cost INR":            (colors.HexColor("#670000"), colors.white),
-                        "Netted USD":               (colors.HexColor("#008000"), colors.white),
-                        "Netted INR":               (colors.HexColor("#1B5E20"), colors.white),
-                        "Direct Cost":              (colors.HexColor("#FFD0D7"), colors.black),
-                        "Indirect Cost":            (colors.HexColor("#FFD0D7"), colors.black),
-                        "Grand Total Cost":         (colors.HexColor("#EF871E"), colors.white),
-                        "Net Profit":               (colors.HexColor("#1B5E20"), colors.white),
-                        "Total USD":                (colors.HexColor("#003366"), colors.white),
-                        "Direct Cost INR":          (colors.HexColor("#003366"), colors.white),
-                        "Total Direct Cost INR":    (colors.HexColor("#003366"), colors.white),
-                        "Total Indirect Cost INR":  (colors.HexColor("#003366"), colors.white),
-                    }
-
-                    all_cols_y = [c for c in df_year_export.columns if not str(c).startswith("::")]
-                    num_cols_y = [c for c in all_cols_y if c not in ("Particulars", "Currency")]
-
-                    buf_pdf_y = io.BytesIO()
-                    doc_y = SimpleDocTemplate(buf_pdf_y, pagesize=landscape(A4),
-                                              leftMargin=10, rightMargin=10, topMargin=20, bottomMargin=15)
-                    styles_y = getSampleStyleSheet()
-                    elements_y = []
-                    elements_y.append(Paragraph(f"P&L Report \u2013 Full Year {selected_fy_pnl} (Monthwise) - PeakAds LLP", styles_y["Title"]))
-                    elements_y.append(Spacer(1, 8))
-
-                    pdf_data_y = [all_cols_y]
-                    for _, row_data in df_year_export.iterrows():
-                        part = str(row_data.get("Particulars", ""))
-                        cur_raw = row_data.get("Currency", "")
-                        cur = "" if str(cur_raw).strip().lower() == "nan" else str(cur_raw)
-                        pdf_row = [part, cur]
-                        for col_name in num_cols_y:
-                            val = row_data.get(col_name, "")
-                            if part in ("Direct Cost", "Indirect Cost", ""):
-                                pdf_row.append("")
-                            elif part == "FX Rate" or col_name == "FX Rate":
-                                try:
-                                    pdf_row.append(f"{float(val):.2f}" if (val != "" and pd.notna(val)) else "")
-                                except:
-                                    pdf_row.append("")
-                            else:
-                                pdf_row.append(_fmt_pdf_val_y(val, cur))
-                        pdf_data_y.append(pdf_row)
-
-                    table_style_y = [
-                        ("BACKGROUND",  (0, 0), (-1, 0), colors.HexColor("#003366")),
-                        ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
-                        ("FONTNAME",    (0, 0), (-1, -1), "Helvetica"),
-                        ("FONTSIZE",    (0, 0), (-1, -1), 6),
-                        ("GRID",        (0, 0), (-1, -1), 0.3, colors.HexColor("#CCCCCC")),
-                        ("ALIGN",       (2, 0), (-1, -1), "RIGHT"),
-                        ("ALIGN",       (0, 0), (1, -1), "LEFT"),
-                        ("RIGHTPADDING", (2, 0), (-1, -1), 4),
-                        ("LEFTPADDING",  (2, 0), (-1, -1), 2),
-                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F5")]),
-                    ]
-                    for ri, row_vals in enumerate(pdf_data_y[1:], start=1):
-                        part = str(row_vals[0])
-                        if part in _rcmap_y:
-                            bg, tc = _rcmap_y[part]
-                            table_style_y.append(("BACKGROUND", (0, ri), (-1, ri), bg))
-                            table_style_y.append(("TEXTCOLOR",  (0, ri), (-1, ri), tc))
-
-                    num_data_cols = len(all_cols_y)
-                    fixed_widths = [115, 28] + [52] * (num_data_cols - 2)
-
-                    tbl_y = Table(pdf_data_y, colWidths=fixed_widths)
-                    tbl_y.setStyle(table_style_y)
-                    elements_y.append(tbl_y)
-                    doc_y.build(elements_y)
-                    buf_pdf_y.seek(0)
-
-                    st.download_button(
-                        label=f"⬇️ Download PDF – Full Year {selected_fy_pnl}",
-                        data=buf_pdf_y,
-                        file_name=f"PnL_{selected_fy_pnl}_Monthwise.pdf",
-                        mime="application/pdf",
-                        key="pnl_dl_pdf_year",
-                        use_container_width=True
-                    )
                     
                     
-            if export_clicked_pnl:
-                export_popup()
+                # Call the export dialog when button is clicked
+                if export_clicked_pnl:
+                    st.session_state["_any_dialog_open"] = True
+                    st.session_state.open_cost_popup = False  # close any other dialog
+                    export_popup()
+                    st.session_state["_any_dialog_open"] = False
                 
-            # ── Grouping ───────────────────────────────────────
-            df_pnl["Group"] = ""
-            df_pnl.loc[df_pnl["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
-            df_pnl.loc[df_pnl["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
-            df_pnl["Group"] = df_pnl["Group"].replace("", np.nan).ffill().fillna("")
+                # ── Grouping ───────────────────────────────────────
+                df_pnl["Group"] = ""
+                df_pnl.loc[df_pnl["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
+                df_pnl.loc[df_pnl["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
+                df_pnl["Group"] = df_pnl["Group"].replace("", np.nan).ffill().fillna("")
 
-            # ── AgGrid ─────────────────────────────────────────
-            from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+                # ── AgGrid ─────────────────────────────────────────
+                from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
-            gb_pnl = GridOptionsBuilder.from_dataframe(df_pnl)
-            gb_pnl.configure_column("Group", rowGroup=True, hide=True)
+                gb_pnl = GridOptionsBuilder.from_dataframe(df_pnl)
+                gb_pnl.configure_column("Group", rowGroup=True, hide=True)
 
-            # Hide the auto-generated unique index column if present
-            gb_pnl.configure_column("__index_level_0__", hide=True)
+                # Hide the auto-generated unique index column if present
+                gb_pnl.configure_column("__index_level_0__", hide=True)
 
-            pnl_currency_fmt = JsCode("""
-            function(params){
-                if(params.value == null || params.value === '' || isNaN(params.value)) return '';
-                let cur = params.data ? params.data.Currency : '';
-                let num = Number(params.value).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
-                if(cur === 'USD')  return '$'  + num;
-                if(cur === 'INR')  return '\u20b9' + num;
-                return Number(params.value).toFixed(2);
-            }
-            """)
+                pnl_currency_fmt = JsCode("""
+                function(params){
+                    if(params.value == null || params.value === '' || isNaN(params.value)) return '';
+                    let cur = params.data ? params.data.Currency : '';
+                    let num = Number(params.value).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
+                    if(cur === 'USD')  return '$'  + num;
+                    if(cur === 'INR')  return '\u20b9' + num;
+                    return Number(params.value).toFixed(2);
+                }
+                """)
 
-            for col in month_cols_pnl + ["Annual/FY Total"]:
-                gb_pnl.configure_column(
-                    col,
-                    type=["numericColumn"],
-                    valueFormatter=pnl_currency_fmt,
-                    cellStyle={"textAlign": "right"}
+                for col in month_cols_pnl + ["Annual/FY Total"]:
+                    gb_pnl.configure_column(
+                        col,
+                        type=["numericColumn"],
+                        valueFormatter=pnl_currency_fmt,
+                        cellStyle={"textAlign": "right"}
+                    )
+
+                gb_pnl.configure_default_column(resizable=True, sortable=False)
+
+                pnl_grid_opts = gb_pnl.build()
+                pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
+                pnl_grid_opts["groupDefaultExpanded"] = 0
+                pnl_grid_opts["suppressMovableColumns"] = True
+                pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                pnl_grid_opts["suppressHorizontalScroll"] = True
+
+                # Explicitly suppress any auto-generated columns
+                if "columnDefs" in pnl_grid_opts:
+                    pnl_grid_opts["columnDefs"] = [
+                        c for c in pnl_grid_opts["columnDefs"]
+                        if not str(c.get("field", "")).startswith("::")
+                    ]
+                    # Force every column to flex-fill the available width
+                    for _cd in pnl_grid_opts["columnDefs"]:
+                        _cd["flex"] = 1
+                        _cd.pop("width", None)
+                        _cd.pop("minWidth", None)
+
+                pnl_grid_opts["getRowStyle"] = JsCode("""
+                function(params){
+                    if(!params.data) return;
+                    if(params.data.Particulars === 'Net Profit'){
+                        return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'14px'};
+                    }
+                    if(params.data.Particulars === 'Revenue'){
+                        return {backgroundColor:'#9370db', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Revenue INR'){
+                        return {backgroundColor:'#800080', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Pubs Cost'){
+                        return {backgroundColor:'#b30000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Pubs Cost INR'){
+                        return {backgroundColor:'#670000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Netted USD'){
+                        return {backgroundColor:'#008000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Netted INR'){
+                        return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(params.data.Particulars === 'Direct Cost'){
+                        return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
+                    }
+                    if(params.data.Particulars === 'Indirect Cost'){
+                        return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
+                    }
+                    if(params.data.Particulars === 'Grand Total Cost'){
+                        return {backgroundColor:'#ef871e', color:'white', fontWeight:'bold', fontSize:'13px'};
+                    }
+                    if(
+                        params.data.Particulars === 'Total USD' ||
+                        params.data.Particulars === 'Direct Cost INR' ||
+                        params.data.Particulars === 'Total Direct Cost INR' ||
+                        params.data.Particulars === 'Total Indirect Cost INR'
+                    ){
+                        return {backgroundColor:'#003366', color:'white', fontWeight:'bold'};
+                    }
+                }
+                """)
+
+                pnl_custom_css = {
+                    ".ag-header": {
+                        "background-color": "#003366 !important",
+                        "color": "white !important",
+                        "font-weight": "bold !important"
+                    }
+                }
+
+                AgGrid(
+                    df_pnl,
+                    gridOptions=pnl_grid_opts,
+                    allow_unsafe_jscode=True,
+                    height=sc.grid_height(650),
+                    fit_columns_on_grid_load=True,
+                    custom_css=pnl_custom_css,
+                    key="pnl_grid"
                 )
-
-            gb_pnl.configure_default_column(resizable=True, sortable=False)
-
-            pnl_grid_opts = gb_pnl.build()
-            pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
-            pnl_grid_opts["groupDefaultExpanded"] = 0
-            pnl_grid_opts["suppressMovableColumns"] = True
-            pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-            pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-            pnl_grid_opts["suppressHorizontalScroll"] = True
-
-            # Explicitly suppress any auto-generated columns
-            if "columnDefs" in pnl_grid_opts:
-                pnl_grid_opts["columnDefs"] = [
-                    c for c in pnl_grid_opts["columnDefs"]
-                    if not str(c.get("field", "")).startswith("::")
-                ]
-                # Force every column to flex-fill the available width
-                for _cd in pnl_grid_opts["columnDefs"]:
-                    _cd["flex"] = 1
-                    _cd.pop("width", None)
-                    _cd.pop("minWidth", None)
-
-            pnl_grid_opts["getRowStyle"] = JsCode("""
-            function(params){
-                if(!params.data) return;
-                if(params.data.Particulars === 'Net Profit'){
-                    return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'14px'};
-                }
-                if(params.data.Particulars === 'Revenue'){
-                    return {backgroundColor:'#9370db', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Revenue INR'){
-                    return {backgroundColor:'#800080', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Pubs Cost'){
-                    return {backgroundColor:'#b30000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Pubs Cost INR'){
-                    return {backgroundColor:'#670000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Netted USD'){
-                    return {backgroundColor:'#008000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Netted INR'){
-                    return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(params.data.Particulars === 'Direct Cost'){
-                    return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
-                }
-                if(params.data.Particulars === 'Indirect Cost'){
-                    return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
-                }
-                if(params.data.Particulars === 'Grand Total Cost'){
-                    return {backgroundColor:'#ef871e', color:'white', fontWeight:'bold', fontSize:'13px'};
-                }
-                if(
-                    params.data.Particulars === 'Total USD' ||
-                    params.data.Particulars === 'Direct Cost INR' ||
-                    params.data.Particulars === 'Total Direct Cost INR' ||
-                    params.data.Particulars === 'Total Indirect Cost INR'
-                ){
-                    return {backgroundColor:'#003366', color:'white', fontWeight:'bold'};
-                }
-            }
-            """)
-
-            pnl_custom_css = {
-                ".ag-header": {
-                    "background-color": "#003366 !important",
-                    "color": "white !important",
-                    "font-weight": "bold !important"
-                }
-            }
-
-            AgGrid(
-                df_pnl,
-                gridOptions=pnl_grid_opts,
-                allow_unsafe_jscode=True,
-                height=sc.grid_height(650),
-                fit_columns_on_grid_load=True,
-                custom_css=pnl_custom_css,
-                key="pnl_grid"
-            )
 
                 
 
