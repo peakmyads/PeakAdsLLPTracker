@@ -1894,7 +1894,14 @@ if "List of Partners" in tabs:
             st.markdown("<br>", unsafe_allow_html=True)
 
             if st.button("+ Add Partner", key="add_form_btn"):
-                add_form_popup()
+                st.session_state.open_partner_popup = True
+                st.rerun()
+                
+            if st.session_state.get("open_partner_popup", False):
+
+            st.session_state.open_partner_popup = False
+
+            add_form_popup()
 
 
         st.divider()
@@ -4168,6 +4175,9 @@ if "Costs Centre" in tabs:
 
         # OPEN POPUP
         if st.session_state.get("open_cost_popup", False):
+
+            st.session_state.open_cost_popup = False
+
             add_cost_popup()
 
         # ====================================================
