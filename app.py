@@ -1899,9 +1899,9 @@ if "List of Partners" in tabs:
                 
             if st.session_state.get("open_partner_popup", False):
 
-            st.session_state.open_partner_popup = False
+                st.session_state.open_partner_popup = False
 
-            add_form_popup()
+                add_form_popup()
 
 
         st.divider()
