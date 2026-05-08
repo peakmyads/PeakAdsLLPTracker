@@ -494,7 +494,7 @@ def _chart_ar_ap_bar(cf):
         **_CHART_BG,
     )
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+                    config=_PLOTLY_LOCK_CONFIG)
 
 
 def _chart_collection_donut(cf):
@@ -535,11 +535,11 @@ def _chart_collection_donut(cf):
     with c1:
         st.plotly_chart(_donut(ar_pct, "AR Collection Rate", "#0076CE"),
                         use_container_width=True,
-                        config={"displayModeBar": False})
+                        config=_PLOTLY_LOCK_CONFIG)
     with c2:
         st.plotly_chart(_donut(ap_pct, "AP Payment Rate", "#198754"),
                         use_container_width=True,
-                        config={"displayModeBar": False})
+                        config=_PLOTLY_LOCK_CONFIG)
 
 
 def _chart_partner_revenue(df, top_n=10):
@@ -577,7 +577,7 @@ def _chart_partner_revenue(df, top_n=10):
         **_CHART_BG,
     )
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+                    config=_PLOTLY_LOCK_CONFIG)
 
 
 def _chart_revenue_mix(df):
@@ -614,7 +614,7 @@ def _chart_revenue_mix(df):
         paper_bgcolor="white",
     )
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+                    config=_PLOTLY_LOCK_CONFIG)
 
 
 
@@ -705,7 +705,7 @@ def _render_partner_onboarding(partner_df):
         **_CHART_BG,
     )
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+                    config=_PLOTLY_LOCK_CONFIG)
 
     # Expandable detail table — rows already sorted by _month above
     with st.expander("📋 Partner Onboarding Detail", expanded=False):
