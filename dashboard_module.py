@@ -377,6 +377,19 @@ _CHART_BG = dict(plot_bgcolor="white", paper_bgcolor="white",
 
 _AXIS_STYLE = dict(showgrid=True, gridcolor="#f0f0f0", tickformat=",.0f",
                    tickprefix="$")
+                   
+# ─────────────────────────────────────────────────────────────────────────────
+# LOCKED PLOTLY CONFIG  (disable all chart interactions)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_PLOTLY_LOCK_CONFIG = {
+    "displayModeBar": False,
+    "staticPlot": True,
+    "scrollZoom": False,
+    "doubleClick": False,
+    "editable": False,
+    "responsive": True,
+}
 
 
 def _chart_monthly_revenue(df_month):
