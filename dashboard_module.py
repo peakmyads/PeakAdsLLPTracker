@@ -379,18 +379,18 @@ _AXIS_STYLE = dict(showgrid=True, gridcolor="#f0f0f0", tickformat=",.0f",
                    tickprefix="$")
                    
 # ─────────────────────────────────────────────────────────────────────────────
-# LOCKED PLOTLY CONFIG  (disable all chart interactions)
+# LOCKED PLOTLY CONFIG
+# Hover allowed, editing disabled
 # ─────────────────────────────────────────────────────────────────────────────
 
 _PLOTLY_LOCK_CONFIG = {
     "displayModeBar": False,
-    "staticPlot": True,
     "scrollZoom": False,
     "doubleClick": False,
     "editable": False,
     "responsive": True,
+    "showAxisDragHandles": False,
 }
-
 
 def _chart_monthly_revenue(df_month):
     """Grouped bar: Revenue vs Cost vs Profit per month."""
