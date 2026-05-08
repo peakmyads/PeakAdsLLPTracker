@@ -414,8 +414,11 @@ def _chart_monthly_revenue(df_month):
         height=320,
         **_CHART_BG,
     )
-    st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config=_PLOTLY_LOCK_CONFIG
+    )
 
 
 def _chart_profit_trend(df_month):
@@ -451,7 +454,7 @@ def _chart_profit_trend(df_month):
         **_CHART_BG,
     )
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displayModeBar": False})
+                    config=_PLOTLY_LOCK_CONFIG)
 
 
 def _chart_ar_ap_bar(cf):
