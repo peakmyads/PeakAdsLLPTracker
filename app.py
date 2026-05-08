@@ -5225,123 +5225,123 @@ if "P&L" in tabs:
             if export_clicked_pnl:
                 export_popup()
                 
-                # ── Grouping ───────────────────────────────────────
-                df_pnl["Group"] = ""
-                df_pnl.loc[df_pnl["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
-                df_pnl.loc[df_pnl["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
-                df_pnl["Group"] = df_pnl["Group"].replace("", np.nan).ffill().fillna("")
+            # ── Grouping ───────────────────────────────────────
+            df_pnl["Group"] = ""
+            df_pnl.loc[df_pnl["Particulars"].str.contains("Direct Cost"), "Group"] = "Direct Cost"
+            df_pnl.loc[df_pnl["Particulars"].str.contains("Indirect Cost"), "Group"] = "Indirect Cost"
+            df_pnl["Group"] = df_pnl["Group"].replace("", np.nan).ffill().fillna("")
 
-                # ── AgGrid ─────────────────────────────────────────
-                from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+            # ── AgGrid ─────────────────────────────────────────
+            from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
-                gb_pnl = GridOptionsBuilder.from_dataframe(df_pnl)
-                gb_pnl.configure_column("Group", rowGroup=True, hide=True)
+            gb_pnl = GridOptionsBuilder.from_dataframe(df_pnl)
+            gb_pnl.configure_column("Group", rowGroup=True, hide=True)
 
-                # Hide the auto-generated unique index column if present
-                gb_pnl.configure_column("__index_level_0__", hide=True)
+            # Hide the auto-generated unique index column if present
+            gb_pnl.configure_column("__index_level_0__", hide=True)
 
-                pnl_currency_fmt = JsCode("""
-                function(params){
-                    if(params.value == null || params.value === '' || isNaN(params.value)) return '';
-                    let cur = params.data ? params.data.Currency : '';
-                    let num = Number(params.value).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
-                    if(cur === 'USD')  return '$'  + num;
-                    if(cur === 'INR')  return '\u20b9' + num;
-                    return Number(params.value).toFixed(2);
-                }
-                """)
+            pnl_currency_fmt = JsCode("""
+            function(params){
+                if(params.value == null || params.value === '' || isNaN(params.value)) return '';
+                let cur = params.data ? params.data.Currency : '';
+                let num = Number(params.value).toLocaleString('en-IN',{minimumFractionDigits:2, maximumFractionDigits:2});
+                if(cur === 'USD')  return '$'  + num;
+                if(cur === 'INR')  return '\u20b9' + num;
+                return Number(params.value).toFixed(2);
+            }
+            """)
 
-                for col in month_cols_pnl + ["Annual/FY Total"]:
-                    gb_pnl.configure_column(
-                        col,
-                        type=["numericColumn"],
-                        valueFormatter=pnl_currency_fmt,
-                        cellStyle={"textAlign": "right"}
-                    )
-
-                gb_pnl.configure_default_column(resizable=True, sortable=False)
-
-                pnl_grid_opts = gb_pnl.build()
-                pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
-                pnl_grid_opts["groupDefaultExpanded"] = 0
-                pnl_grid_opts["suppressMovableColumns"] = True
-                pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                pnl_grid_opts["suppressHorizontalScroll"] = True
-
-                # Explicitly suppress any auto-generated columns
-                if "columnDefs" in pnl_grid_opts:
-                    pnl_grid_opts["columnDefs"] = [
-                        c for c in pnl_grid_opts["columnDefs"]
-                        if not str(c.get("field", "")).startswith("::")
-                    ]
-                    # Force every column to flex-fill the available width
-                    for _cd in pnl_grid_opts["columnDefs"]:
-                        _cd["flex"] = 1
-                        _cd.pop("width", None)
-                        _cd.pop("minWidth", None)
-
-                pnl_grid_opts["getRowStyle"] = JsCode("""
-                function(params){
-                    if(!params.data) return;
-                    if(params.data.Particulars === 'Net Profit'){
-                        return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'14px'};
-                    }
-                    if(params.data.Particulars === 'Revenue'){
-                        return {backgroundColor:'#9370db', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Revenue INR'){
-                        return {backgroundColor:'#800080', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Pubs Cost'){
-                        return {backgroundColor:'#b30000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Pubs Cost INR'){
-                        return {backgroundColor:'#670000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Netted USD'){
-                        return {backgroundColor:'#008000', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Netted INR'){
-                        return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(params.data.Particulars === 'Direct Cost'){
-                        return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
-                    }
-                    if(params.data.Particulars === 'Indirect Cost'){
-                        return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
-                    }
-                    if(params.data.Particulars === 'Grand Total Cost'){
-                        return {backgroundColor:'#ef871e', color:'white', fontWeight:'bold', fontSize:'13px'};
-                    }
-                    if(
-                        params.data.Particulars === 'Total USD' ||
-                        params.data.Particulars === 'Direct Cost INR' ||
-                        params.data.Particulars === 'Total Direct Cost INR' ||
-                        params.data.Particulars === 'Total Indirect Cost INR'
-                    ){
-                        return {backgroundColor:'#003366', color:'white', fontWeight:'bold'};
-                    }
-                }
-                """)
-
-                pnl_custom_css = {
-                    ".ag-header": {
-                        "background-color": "#003366 !important",
-                        "color": "white !important",
-                        "font-weight": "bold !important"
-                    }
-                }
-
-                AgGrid(
-                    df_pnl,
-                    gridOptions=pnl_grid_opts,
-                    allow_unsafe_jscode=True,
-                    height=sc.grid_height(650),
-                    fit_columns_on_grid_load=True,
-                    custom_css=pnl_custom_css,
-                    key="pnl_grid"
+            for col in month_cols_pnl + ["Annual/FY Total"]:
+                gb_pnl.configure_column(
+                    col,
+                    type=["numericColumn"],
+                    valueFormatter=pnl_currency_fmt,
+                    cellStyle={"textAlign": "right"}
                 )
+
+            gb_pnl.configure_default_column(resizable=True, sortable=False)
+
+            pnl_grid_opts = gb_pnl.build()
+            pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
+            pnl_grid_opts["groupDefaultExpanded"] = 0
+            pnl_grid_opts["suppressMovableColumns"] = True
+            pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+            pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+            pnl_grid_opts["suppressHorizontalScroll"] = True
+
+            # Explicitly suppress any auto-generated columns
+            if "columnDefs" in pnl_grid_opts:
+                pnl_grid_opts["columnDefs"] = [
+                    c for c in pnl_grid_opts["columnDefs"]
+                    if not str(c.get("field", "")).startswith("::")
+                ]
+                # Force every column to flex-fill the available width
+                for _cd in pnl_grid_opts["columnDefs"]:
+                    _cd["flex"] = 1
+                    _cd.pop("width", None)
+                    _cd.pop("minWidth", None)
+
+            pnl_grid_opts["getRowStyle"] = JsCode("""
+            function(params){
+                if(!params.data) return;
+                if(params.data.Particulars === 'Net Profit'){
+                    return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'14px'};
+                }
+                if(params.data.Particulars === 'Revenue'){
+                    return {backgroundColor:'#9370db', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Revenue INR'){
+                    return {backgroundColor:'#800080', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Pubs Cost'){
+                    return {backgroundColor:'#b30000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Pubs Cost INR'){
+                    return {backgroundColor:'#670000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Netted USD'){
+                    return {backgroundColor:'#008000', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Netted INR'){
+                    return {backgroundColor:'#1B5E20', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(params.data.Particulars === 'Direct Cost'){
+                    return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
+                }
+                if(params.data.Particulars === 'Indirect Cost'){
+                    return {backgroundColor:'#ffd0d7', color:'black', fontWeight:'bold', fontSize:'14px'};
+                }
+                if(params.data.Particulars === 'Grand Total Cost'){
+                    return {backgroundColor:'#ef871e', color:'white', fontWeight:'bold', fontSize:'13px'};
+                }
+                if(
+                    params.data.Particulars === 'Total USD' ||
+                    params.data.Particulars === 'Direct Cost INR' ||
+                    params.data.Particulars === 'Total Direct Cost INR' ||
+                    params.data.Particulars === 'Total Indirect Cost INR'
+                ){
+                    return {backgroundColor:'#003366', color:'white', fontWeight:'bold'};
+                }
+            }
+            """)
+
+            pnl_custom_css = {
+                ".ag-header": {
+                    "background-color": "#003366 !important",
+                    "color": "white !important",
+                    "font-weight": "bold !important"
+                }
+            }
+
+            AgGrid(
+                df_pnl,
+                gridOptions=pnl_grid_opts,
+                allow_unsafe_jscode=True,
+                height=sc.grid_height(650),
+                fit_columns_on_grid_load=True,
+                custom_css=pnl_custom_css,
+                key="pnl_grid"
+            )
 
                 
 
