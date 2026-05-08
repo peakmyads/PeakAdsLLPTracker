@@ -417,6 +417,7 @@ def _chart_monthly_revenue(df_month):
         hovertemplate="<b>%{x}</b><br>Profit: $%{y:,.2f}<extra></extra>",
     ))
     fig.update_layout(
+        dragmode=False,
         barmode="group",
         title=dict(text="📅 Monthly Revenue vs Cost vs Profit",
                    font=dict(size=13, color="#003366")),
@@ -458,6 +459,7 @@ def _chart_profit_trend(df_month):
         hovertemplate="<b>%{x}</b><br>Cumulative: $%{y:,.2f}<extra></extra>",
     ))
     fig.update_layout(
+        dragmode=False,
         title=dict(text="📈 Profit Trend", font=dict(size=13, color="#003366")),
         xaxis=dict(tickangle=-30, tickfont=dict(size=10)),
         yaxis=_AXIS_STYLE,
@@ -486,6 +488,7 @@ def _chart_ar_ap_bar(cf):
         textposition="outside",
     ))
     fig.update_layout(
+        dragmode=False,
         title=dict(text="💰 Cash-Flow Snapshot — AR vs AP",
                    font=dict(size=13, color="#003366")),
         xaxis=dict(tickprefix="$", tickformat=",.0f",
@@ -522,6 +525,7 @@ def _chart_collection_donut(cf):
             font=dict(size=16, color=color), xanchor="center",
         )
         fig.update_layout(
+            dragmode=False,
             title=dict(text=title, font=dict(size=12, color="#003366")),
             showlegend=False,
             margin=dict(l=5, r=5, t=40, b=5),
@@ -568,6 +572,7 @@ def _chart_partner_revenue(df, top_n=10):
         textposition="outside",
     ))
     fig.update_layout(
+        dragmode=False,
         title=dict(text=f"🏆 Top {top_n} Partners by Revenue",
                    font=dict(size=13, color="#003366")),
         xaxis=dict(tickprefix="$", tickformat=",.0f",
@@ -604,6 +609,7 @@ def _chart_revenue_mix(df):
         hovertemplate="<b>%{label}</b><br>$%{value:,.2f}<extra></extra>",
     ))
     fig.update_layout(
+        dragmode=False,
         title=dict(text="🥧 Revenue Mix by Partner",
                    font=dict(size=13, color="#003366")),
         legend=dict(orientation="h", yanchor="bottom", y=-0.3,
@@ -690,6 +696,7 @@ def _render_partner_onboarding(partner_df):
         ),
     ))
     fig.update_layout(
+        dragmode=False,
         title=dict(text="🤝 Partners Onboarded by Month",
                    font=dict(size=13, color="#003366")),
         xaxis=dict(
