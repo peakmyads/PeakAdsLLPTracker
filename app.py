@@ -3905,271 +3905,270 @@ if "Costs Centre" in tabs:
         # ADD COST POPUP
         # ====================================================
 
-        if st.session_state.open_cost_popup:
+        @st.dialog("Add New Cost")
+        def add_cost_popup():
 
-            @st.dialog("Add New Cost")
-            def add_cost_popup():
+            st.markdown("### Add Cost Details")
 
-                st.markdown("### Add Cost Details")
+            cost_df = load_cost_centre().copy()
 
-                cost_df = load_cost_centre().copy()
+            # -------------------------
+            # CATEGORY
+            # -------------------------
+            category = st.selectbox(
+                "Category",
+                ["Select", "Direct", "Indirect"],
+                key="cost_category"
+            )
 
-                # -------------------------
-                # CATEGORY
-                # -------------------------
-                category = st.selectbox(
-                    "Category",
-                    ["Select", "Direct", "Indirect"],
-                    key="cost_category"
+            # -------------------------
+            # COST NAME (dynamic)
+            # -------------------------
+            if not cost_df.empty and category != "Select":
+                cost_names = sorted(
+                    cost_df[cost_df["Category"] == category]["Cost Name"]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+                    .tolist()
+                )
+            else:
+                cost_names = []
+
+            cost_name_selected = st.selectbox(
+                "Cost Name",
+                ["Select"] + cost_names,
+                key="cost_name"
+            )
+
+            new_cost_name = st.text_input(
+                "Add New Cost Name (optional)",
+                key="new_cost_name"
+            )
+
+            cost_name = new_cost_name.strip() if new_cost_name.strip() else cost_name_selected
+
+            # -------------------------
+            # SUB COST (dynamic)
+            # -------------------------
+            if not cost_df.empty and category != "Select" and cost_name_selected != "Select":
+                sub_cost_list = sorted(
+                    cost_df[
+                        (cost_df["Category"] == category) &
+                        (cost_df["Cost Name"] == cost_name_selected)
+                    ]["Sub Cost"]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+                    .tolist()
+                )
+            else:
+                sub_cost_list = []
+
+            sub_cost_selected = st.selectbox(
+                "Sub Cost",
+                ["Select"] + sub_cost_list,
+                key="sub_cost"
+            )
+
+            new_sub_cost = st.text_input(
+                "Add New Sub Cost (optional)",
+                key="new_sub_cost"
+            )
+
+            sub_cost = new_sub_cost.strip() if new_sub_cost.strip() else sub_cost_selected
+
+            # -------------------------
+            # FINANCIAL YEAR
+            # -------------------------
+            financial_year = st.selectbox(
+                "Financial Year",
+                fy_list,
+                index=0,
+                key="cost_fy"
+            )
+
+            # -------------------------
+            # MONTH LIST
+            # -------------------------
+            fy_start = int(financial_year.split("-")[0])
+
+            months = pd.date_range(
+                start=f"{fy_start}-04-01",
+                end=f"{fy_start+1}-03-31",
+                freq="MS"
+            )
+
+            month_options = ["Select"] + months.strftime("%b-%Y").tolist()
+
+            month = st.selectbox(
+                "Month",
+                options=month_options,
+                key="cost_month"
+            )
+
+            # -------------------------
+            # AUTO FX FETCH
+            # -------------------------
+            fx_rate_auto = get_fx_rate(month) if month != "Select" else 0.0
+
+            if "fx_rate" not in st.session_state:
+                st.session_state.fx_rate = fx_rate_auto
+
+            if st.session_state.get("last_month") != month:
+                st.session_state.fx_rate = fx_rate_auto
+                st.session_state.last_month = month
+
+            # -------------------------
+            # CURRENCY
+            # -------------------------
+            currency = st.selectbox(
+                "USD / INR",
+                ["Select", "USD", "INR"],
+                key="cost_currency"
+            )
+
+            amount_usd = 0.0
+            fx_rate = 0.0
+            amount_inr = 0.0
+
+            if currency == "USD":
+                amount_usd = st.number_input(
+                    "Amount $",
+                    min_value=0.0,
+                    step=0.01,
+                    key="amount_usd"
                 )
 
-                # -------------------------
-                # COST NAME (dynamic)
-                # -------------------------
-                if not cost_df.empty and category != "Select":
-                    cost_names = sorted(
-                        cost_df[cost_df["Category"] == category]["Cost Name"]
-                        .dropna()
-                        .astype(str)
-                        .unique()
-                        .tolist()
-                    )
-                else:
-                    cost_names = []
-
-                cost_name_selected = st.selectbox(
-                    "Cost Name",
-                    ["Select"] + cost_names,
-                    key="cost_name"
+                fx_rate = st.number_input(
+                    "FX Rate",
+                    value=float(st.session_state.fx_rate),
+                    step=0.01,
+                    format="%.4f",
+                    key="fx_rate"
                 )
 
-                new_cost_name = st.text_input(
-                    "Add New Cost Name (optional)",
-                    key="new_cost_name"
+                amount_inr = round(amount_usd * fx_rate, 2)
+
+                st.number_input(
+                    "Auto Amount ₹",
+                    value=float(amount_inr),
+                    disabled=True,
+                    format="%.2f",
+                    key="auto_amount_inr"
                 )
 
-                cost_name = new_cost_name.strip() if new_cost_name.strip() else cost_name_selected
-
-                # -------------------------
-                # SUB COST (dynamic)
-                # -------------------------
-                if not cost_df.empty and category != "Select" and cost_name_selected != "Select":
-                    sub_cost_list = sorted(
-                        cost_df[
-                            (cost_df["Category"] == category) &
-                            (cost_df["Cost Name"] == cost_name_selected)
-                        ]["Sub Cost"]
-                        .dropna()
-                        .astype(str)
-                        .unique()
-                        .tolist()
-                    )
-                else:
-                    sub_cost_list = []
-
-                sub_cost_selected = st.selectbox(
-                    "Sub Cost",
-                    ["Select"] + sub_cost_list,
-                    key="sub_cost"
+            elif currency == "INR":
+                amount_inr = st.number_input(
+                    "Amount ₹",
+                    min_value=0.0,
+                    step=0.01,
+                    key="amount_inr"
                 )
 
-                new_sub_cost = st.text_input(
-                    "Add New Sub Cost (optional)",
-                    key="new_sub_cost"
-                )
-
-                sub_cost = new_sub_cost.strip() if new_sub_cost.strip() else sub_cost_selected
-
-                # -------------------------
-                # FINANCIAL YEAR
-                # -------------------------
-                financial_year = st.selectbox(
-                    "Financial Year",
-                    fy_list,
-                    index=0,
-                    key="cost_fy"
-                )
-
-                # -------------------------
-                # MONTH LIST
-                # -------------------------
-                fy_start = int(financial_year.split("-")[0])
-
-                months = pd.date_range(
-                    start=f"{fy_start}-04-01",
-                    end=f"{fy_start+1}-03-31",
-                    freq="MS"
-                )
-
-                month_options = ["Select"] + months.strftime("%b-%Y").tolist()
-
-                month = st.selectbox(
-                    "Month",
-                    options=month_options,
-                    key="cost_month"
-                )
-
-                # -------------------------
-                # AUTO FX FETCH
-                # -------------------------
-                fx_rate_auto = get_fx_rate(month) if month != "Select" else 0.0
-
-                if "fx_rate" not in st.session_state:
-                    st.session_state.fx_rate = fx_rate_auto
-
-                if st.session_state.get("last_month") != month:
-                    st.session_state.fx_rate = fx_rate_auto
-                    st.session_state.last_month = month
-
-                # -------------------------
-                # CURRENCY
-                # -------------------------
-                currency = st.selectbox(
-                    "USD / INR",
-                    ["Select", "USD", "INR"],
-                    key="cost_currency"
-                )
-
-                amount_usd = 0.0
                 fx_rate = 0.0
-                amount_inr = 0.0
+                amount_usd = 0.0
 
-                if currency == "USD":
-                    amount_usd = st.number_input(
-                        "Amount $",
-                        min_value=0.0,
-                        step=0.01,
-                        key="amount_usd"
-                    )
+            st.divider()
 
-                    fx_rate = st.number_input(
-                        "FX Rate",
-                        value=float(st.session_state.fx_rate),
-                        step=0.01,
-                        format="%.4f",
-                        key="fx_rate"
-                    )
+            c1, c2 = st.columns(2)
 
-                    amount_inr = round(amount_usd * fx_rate, 2)
+            with c1:
+                save_cost = st.button("Save Cost", key="save_cost")
 
-                    st.number_input(
-                        "Auto Amount ₹",
-                        value=float(amount_inr),
-                        disabled=True,
-                        format="%.2f",
-                        key="auto_amount_inr"
-                    )
-
-                elif currency == "INR":
-                    amount_inr = st.number_input(
-                        "Amount ₹",
-                        min_value=0.0,
-                        step=0.01,
-                        key="amount_inr"
-                    )
-
-                    fx_rate = 0.0
-                    amount_usd = 0.0
-
-                st.divider()
-
-                c1, c2 = st.columns(2)
-
-                with c1:
-                    save_cost = st.button("Save Cost", key="save_cost")
-
-                with c2:
-                    if st.button("Close", key="close_cost_popup"):
-                        st.session_state.open_cost_popup = False
-                        st.rerun()
-
-                # -------------------------
-                # SAVE BUTTON
-                # -------------------------
-                if save_cost:
-
-                    if category == "Select":
-                        st.error("Please select Category")
-                        return
-
-                    if not cost_name or cost_name == "Select":
-                        st.error("Please select or enter Cost Name")
-                        return
-
-                    if not sub_cost or sub_cost == "Select":
-                        st.error("Please select or enter Sub Cost")
-                        return
-
-                    if month == "Select":
-                        st.error("Please select Month")
-                        return
-
-                    if currency == "Select":
-                        st.error("Please select Currency")
-                        return
-
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-
-                    # Duplicate check
-                    cursor.execute("""
-                        SELECT COUNT(*) FROM cost_centre
-                        WHERE category = ?
-                          AND cost_name = ?
-                          AND sub_cost = ?
-                          AND financial_year = ?
-                          AND month = ?
-                    """, (
-                        category,
-                        cost_name,
-                        sub_cost,
-                        financial_year,
-                        month
-                    ))
-
-                    duplicate_count = cursor.fetchone()[0]
-
-                    if duplicate_count > 0:
-                        conn.close()
-                        st.error("This cost already exists for the selected month.")
-                        return
-
-                    cursor.execute("""
-                        INSERT INTO cost_centre (
-                            category,
-                            cost_name,
-                            sub_cost,
-                            financial_year,
-                            month,
-                            currency,
-                            amount_usd,
-                            fx_rate,
-                            amount_inr
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        category,
-                        cost_name,
-                        sub_cost,
-                        financial_year,
-                        str(month),   # ✅ FORCE STRING
-                        currency,
-                        float(amount_usd),
-                        float(fx_rate),
-                        float(amount_inr)
-                    ))
-
-                    conn.commit()
-                    conn.close()
-
-                    load_cost_centre.clear()
-                    st.session_state.cost_df = load_cost_centre()
-
-                    st.success("Cost Saved Successfully")
+            with c2:
+                if st.button("Close", key="close_cost_popup"):
                     st.session_state.open_cost_popup = False
                     st.rerun()
 
-            if not st.session_state.get("_any_dialog_open", False):
-                add_cost_popup()
+            # -------------------------
+            # SAVE BUTTON
+            # -------------------------
+            if save_cost:
+
+                if category == "Select":
+                    st.error("Please select Category")
+                    return
+
+                if not cost_name or cost_name == "Select":
+                    st.error("Please select or enter Cost Name")
+                    return
+
+                if not sub_cost or sub_cost == "Select":
+                    st.error("Please select or enter Sub Cost")
+                    return
+
+                if month == "Select":
+                    st.error("Please select Month")
+                    return
+
+                if currency == "Select":
+                    st.error("Please select Currency")
+                    return
+
+                conn = get_db_connection()
+                cursor = conn.cursor()
+
+                # Duplicate check
+                cursor.execute("""
+                    SELECT COUNT(*) FROM cost_centre
+                    WHERE category = ?
+                      AND cost_name = ?
+                      AND sub_cost = ?
+                      AND financial_year = ?
+                      AND month = ?
+                """, (
+                    category,
+                    cost_name,
+                    sub_cost,
+                    financial_year,
+                    month
+                ))
+
+                duplicate_count = cursor.fetchone()[0]
+
+                if duplicate_count > 0:
+                    conn.close()
+                    st.error("This cost already exists for the selected month.")
+                    return
+
+                cursor.execute("""
+                    INSERT INTO cost_centre (
+                        category,
+                        cost_name,
+                        sub_cost,
+                        financial_year,
+                        month,
+                        currency,
+                        amount_usd,
+                        fx_rate,
+                        amount_inr
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    category,
+                    cost_name,
+                    sub_cost,
+                    financial_year,
+                    str(month),   # ✅ FORCE STRING
+                    currency,
+                    float(amount_usd),
+                    float(fx_rate),
+                    float(amount_inr)
+                ))
+
+                conn.commit()
+                conn.close()
+
+                load_cost_centre.clear()
+                st.session_state.cost_df = load_cost_centre()
+
+                st.success("Cost Saved Successfully")
+                st.session_state.open_cost_popup = False
+                st.rerun()
+
+        # OPEN POPUP
+        if st.session_state.get("open_cost_popup", False):
+            add_cost_popup()
 
         # ====================================================
         # COST TABLE
