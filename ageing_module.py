@@ -108,6 +108,7 @@ def _bar_chart(summary_df, name_col, title):
             hovertemplate=f"<b>%{{x}}</b><br>{bucket}: $%{{y:,.2f}}<extra></extra>",
         ))
     fig.update_layout(
+        dragmode=False,
         barmode="stack",
         title=dict(text=title, font=dict(size=13, color="#003366")),
         xaxis=dict(tickangle=-35, tickfont=dict(size=10)),
@@ -145,6 +146,7 @@ def _donut(summary_df, title):
         font=dict(size=12, color="#003366"), xanchor="center"
     )
     fig.update_layout(
+        dragmode=False,
         title=dict(text=title, font=dict(size=13, color="#003366")),
         legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5),
         margin=dict(l=10, r=10, t=50, b=10),
