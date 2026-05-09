@@ -69,6 +69,7 @@ TAB_MAP = {
     "P&L"             : "📉 P&L",
     "Admin Control"   : "⚙️ Admin Control Panel",
     "Edit Database"   : "🛠️ Edit Database",
+    "BC Report"       : "📋 BC Report",
 }
 
 TAB_ICONS = {
@@ -83,6 +84,7 @@ TAB_ICONS = {
     "P&L"             : "📉",
     "Admin Control"   : "⚙️",
     "Edit Database"   : "🛠️",
+    "BC Report"       : "📋",
 }
 
 
