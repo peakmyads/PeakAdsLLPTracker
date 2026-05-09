@@ -49,6 +49,7 @@ ROLE_ACCESS = {
         "Dashboard", "Ageing", "Master Data", "DSP (Customers)",
         "Invoice Manager", "SSP (Vendors)", "List of Partners",
         "Costs Centre", "P&L", "Admin Control", "Edit Database",
+        "BC Report",
     ],
     "Sales":   ["Dashboard", "Summary", "List of Partners"],
     "Finance": ["Dashboard", "Summary", "DSP (Customers)",
