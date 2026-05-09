@@ -10,6 +10,7 @@ from invoice_module import render_invoice_module
 from navbar import render_navbar
 from dashboard_module import render_dashboard_tab
 from ageing_module import render_ageing_tab
+from bc_report_module import render_bc_report_tab
 import streamlit as st
 import pandas as pd
 import os
@@ -1269,6 +1270,57 @@ def generate_financial_years():
     return fy_list
 
 
+
+def _tab_fy_list():
+    """FY labels in Invoice Manager format: 'FY 2025-26', 'FY 2026-27'."""
+    today = datetime.today()
+    s = today.year if today.month >= 4 else today.year - 1
+    return [f"FY {s-1}-{str(s)[-2:]}", f"FY {s}-{str(s+1)[-2:]}"]
+
+def _fy_yr(fy_label):
+    """'FY 2026-27' → 2026 (the start calendar year)."""
+    return int(fy_label.replace("FY ","").split("-")[0])
+
+def _fy_months(fy_label):
+    """Return ordered month labels Apr→Mar for the given FY label.
+    Falls back to current FY when fy_label is 'All'."""
+    if not fy_label or fy_label == "All":
+        today = datetime.today()
+        yr = today.year if today.month >= 4 else today.year - 1
+    else:
+        yr = _fy_yr(fy_label)
+    seq = [(4,yr),(5,yr),(6,yr),(7,yr),(8,yr),(9,yr),
+           (10,yr),(11,yr),(12,yr),(1,yr+1),(2,yr+1),(3,yr+1)]
+    return [datetime(y,m,1).strftime("%b-%Y") for m,y in seq]
+
+def _fy_date_range(fy_label):
+    """'FY 2026-27' → (Timestamp('2026-04-01'), Timestamp('2027-03-31'))."""
+    yr = _fy_yr(fy_label)
+    return pd.Timestamp(f"{yr}-04-01"), pd.Timestamp(f"{yr+1}-03-31")
+
+_QUARTER_OPTS   = ["Q1 (Apr–Jun)", "Q2 (Jul–Sep)", "Q3 (Oct–Dec)", "Q4 (Jan–Mar)"]
+_QUARTER_MONTHS = {
+    "Q1 (Apr–Jun)": (4, 6),
+    "Q2 (Jul–Sep)": (7, 9),
+    "Q3 (Oct–Dec)": (10, 12),
+    "Q4 (Jan–Mar)": (1,  3),
+}
+
+def _quarter_date_range(fy_label, q_label):
+    """'FY 2026-27', 'Q1 (Apr–Jun)' → (Timestamp, Timestamp)."""
+    import calendar
+    if not fy_label or fy_label == "All":
+        today = datetime.today()
+        yr = today.year if today.month >= 4 else today.year - 1
+    else:
+        yr = _fy_yr(fy_label)
+    m1, m2 = _QUARTER_MONTHS[q_label]
+    yr1  = yr+1 if m1 <= 3 else yr
+    yr2  = yr+1 if m2 <= 3 else yr
+    last = calendar.monthrange(yr2, m2)[1]
+    return pd.Timestamp(f"{yr1}-{m1:02d}-01"), pd.Timestamp(f"{yr2}-{m2:02d}-{last}")
+
+
 def get_fy_date_range(fy_string):
     start_year = int(fy_string.split("-")[0])
     start_date = pd.to_datetime(f"{start_year}-04-01")
@@ -1586,7 +1638,8 @@ tab_map = {
     "Costs Centre": "💰 Costs Centre",
     "P&L": "📉 P&L",
     "Admin Control": "⚙️ Admin Control Panel",
-    "Edit Database": "🛠️ Edit Database"
+    "Edit Database": "🛠️ Edit Database",
+    "BC Report":     "📋 BC Report",
 }
 
 tab_titles = [tab_map[t] for t in allowed_tabs]
@@ -1604,6 +1657,14 @@ if "Dashboard" in tabs:
             ssp_df    = st.session_state.get("ssp_df"),
             partner_df = st.session_state.get("partner_df"),   # ← add this
         )
+
+# ====================================================
+# BC REPORT TAB
+# ====================================================
+
+if "BC Report" in tabs:
+    with tabs["BC Report"]:
+        render_bc_report_tab()
 
 # ====================================================
 # LIST OF PARTNERS TAB
@@ -2000,51 +2061,37 @@ if "Master Data" in tabs:
                 </div></div>
             ''', unsafe_allow_html=True)
 
-        fy_list = generate_financial_years()
-
+        # ── FY / Month / Quarter filters (Invoice Manager style) ──────────────
+        _mst_fy_list = _tab_fy_list()
         col2, col3, col4, col5, col6 = st.columns([0.3, 0.3, 0.3, 0.5, 0.5])
 
         with col2:
             selected_fy = st.selectbox(
                 "Financial Year",
-                options=["All"] + fy_list,
+                options=["All"] + _mst_fy_list,
                 index=0,
                 key="master_fy"
             )
 
+        _mst_q = st.session_state.get("master_quarter", "All")
+        _mst_m = st.session_state.get("master_month",   "All")
+
         with col3:
-            month_options = ["All"]
-
-            if "master_df" in st.session_state and not st.session_state.master_df.empty:
-                temp_df = st.session_state.master_df.copy()
-
-                # Convert to datetime
-                temp_df["Month"] = pd.to_datetime(temp_df["Month"], errors="coerce")
-
-                # Drop nulls & duplicates
-                temp_df = temp_df.dropna(subset=["Month"]).drop_duplicates(subset=["Month"])
-
-                # ✅ SORT PROPERLY
-                temp_df = temp_df.sort_values("Month")
-
-                # Convert back to display format
-                month_list = temp_df["Month"].dt.strftime("%b-%Y").tolist()
-
-                month_options += month_list
-
             selected_month = st.selectbox(
                 "Month",
-                options=month_options,
+                options=["All"] + _fy_months(selected_fy),
                 index=0,
-                key="master_month"
+                key="master_month",
+                disabled=(_mst_q not in ("", "All")),
             )
 
         with col4:
             selected_quarter = st.selectbox(
                 "Quarter",
-                options=["All", "Q1", "Q2", "Q3", "Q4"],
+                options=["All"] + _QUARTER_OPTS,
                 index=0,
-                key="master_quarter"
+                key="master_quarter",
+                disabled=(_mst_m not in ("", "All")),
             )
 
         with col5:
@@ -2060,17 +2107,12 @@ if "Master Data" in tabs:
                 "🔄 Refresh",
                 key="master_refresh_button"
             )
-        
+
         if refresh_clicked:
             load_master_data.clear()
             st.session_state.master_df = load_master_data()
             st.rerun()
 
-        # Disable month if quarter selected
-        if selected_quarter != "All":
-            selected_month = "All"
-
-        # 🔹 Load Master Data from Google
         if "master_df" not in st.session_state:
             st.session_state.master_df = load_master_data()
 
@@ -2078,33 +2120,26 @@ if "Master Data" in tabs:
         if df_master.empty:
             st.info("📭 No data yet. Please upload or add Master Data.")
             st.stop()
-        
+
         df_filtered = df_master.copy()
+        df_filtered["Month"] = pd.to_datetime(df_filtered["Month"], errors="coerce")
 
-        if selected_fy != "All":
-            fy_start, fy_end = get_fy_date_range(selected_fy)
-
-            df_filtered["Month"] = pd.to_datetime(df_filtered["Month"], errors="coerce")
-
+        if selected_fy not in ("", "All"):
+            _mst_fy_start, _mst_fy_end = _fy_date_range(selected_fy)
             df_filtered = df_filtered[
-                (df_filtered["Month"] >= fy_start) &
-                (df_filtered["Month"] <= fy_end)
+                (df_filtered["Month"] >= _mst_fy_start) &
+                (df_filtered["Month"] <= _mst_fy_end)
             ]
-
-        if selected_quarter != "All":
-            q_start, q_end = get_quarter_range(selected_fy, selected_quarter)
-
-            df_filtered = df_filtered[
-                (df_filtered["Month"] >= q_start) &
-                (df_filtered["Month"] <= q_end)
-            ]
-
-        if selected_month != "All":
-            df_filtered["Month"] = pd.to_datetime(df_filtered["Month"], errors="coerce")
-
-            df_filtered = df_filtered[
-                df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
-            ]
+            if selected_quarter not in ("", "All"):
+                q_start, q_end = _quarter_date_range(selected_fy, selected_quarter)
+                df_filtered = df_filtered[
+                    (df_filtered["Month"] >= q_start) &
+                    (df_filtered["Month"] <= q_end)
+                ]
+            elif selected_month not in ("", "All"):
+                df_filtered = df_filtered[
+                    df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
+                ]
         
         df_partner = st.session_state.get("partner_df", pd.DataFrame()).copy()
 
@@ -2667,50 +2702,38 @@ if "DSP (Customers)" in tabs:
             ''', unsafe_allow_html=True)
 
         # ==============================
-        # FILTERS
+        # FILTERS  (Invoice Manager style)
         # ==============================
-        fy_list = generate_financial_years()
-
+        _dsp_fy_list = _tab_fy_list()
         col2, col3, col4, col5, col6 = st.columns([0.3, 0.3, 0.3, 0.5, 0.5])
 
         with col2:
             selected_fy = st.selectbox(
                 "Financial Year",
-                options=["All"] + fy_list,
+                options=["All"] + _dsp_fy_list,
                 index=0,
                 key="dsp_fy"
             )
 
+        _dsp_q = st.session_state.get("dsp_quarter", "All")
+        _dsp_m = st.session_state.get("dsp_month",   "All")
+
         with col3:
-            month_options = ["All"]
-
-            if "dsp_df" in st.session_state and not st.session_state.dsp_df.empty:
-                temp_df = st.session_state.dsp_df.copy()
-
-                temp_df["Month"] = pd.to_datetime(temp_df["Month"], errors="coerce")
-
-                temp_df = temp_df.dropna(subset=["Month"]).drop_duplicates(subset=["Month"])
-
-                # ✅ FIX chronological sorting
-                temp_df = temp_df.sort_values("Month")
-
-                month_list = temp_df["Month"].dt.strftime("%b-%Y").tolist()
-
-                month_options += month_list
-
             selected_month = st.selectbox(
                 "Month",
-                options=month_options,
+                options=["All"] + _fy_months(selected_fy),
                 index=0,
-                key="dsp_month"
+                key="dsp_month",
+                disabled=(_dsp_q not in ("", "All")),
             )
 
         with col4:
             selected_quarter = st.selectbox(
                 "Quarter",
-                options=["All", "Q1", "Q2", "Q3", "Q4"],
+                options=["All"] + _QUARTER_OPTS,
                 index=0,
-                key="dsp_quarter"
+                key="dsp_quarter",
+                disabled=(_dsp_m not in ("", "All")),
             )
 
         with col5:
@@ -2806,28 +2829,26 @@ if "DSP (Customers)" in tabs:
         df["Invoice Status"] = df.apply(_inv_status, axis=1)
 
         # ==============================
-        # APPLY FILTERS
+        # APPLY FILTERS (Invoice Manager style)
         # ==============================
         df_filtered = df.copy()
 
-        if selected_fy != "All":
-            fy_start, fy_end = get_fy_date_range(selected_fy)
+        if selected_fy not in ("", "All"):
+            _dsp_fy_start, _dsp_fy_end = _fy_date_range(selected_fy)
             df_filtered = df_filtered[
-                (df_filtered["Month"] >= fy_start) &
-                (df_filtered["Month"] <= fy_end)
+                (df_filtered["Month"] >= _dsp_fy_start) &
+                (df_filtered["Month"] <= _dsp_fy_end)
             ]
-
-        if selected_quarter != "All":
-            q_start, q_end = get_quarter_range(selected_fy, selected_quarter)
-            df_filtered = df_filtered[
-                (df_filtered["Month"] >= q_start) &
-                (df_filtered["Month"] <= q_end)
-            ]
-            
-        if selected_month != "All":
-            df_filtered = df_filtered[
-                df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
-            ]
+            if selected_quarter not in ("", "All"):
+                q_start, q_end = _quarter_date_range(selected_fy, selected_quarter)
+                df_filtered = df_filtered[
+                    (df_filtered["Month"] >= q_start) &
+                    (df_filtered["Month"] <= q_end)
+                ]
+            elif selected_month not in ("", "All"):
+                df_filtered = df_filtered[
+                    df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
+                ]
 
         # ==============================
         # FORMAT FOR DISPLAY
@@ -3391,50 +3412,38 @@ if "SSP (Vendors)" in tabs:
                 </div></div>
             ''', unsafe_allow_html=True)
         # ==============================
-        # FILTERS
+        # FILTERS (Invoice Manager style)
         # ==============================
-        fy_list = generate_financial_years()
-
+        _ssp_fy_list = _tab_fy_list()
         col2, col3, col4, col5, col6 = st.columns([0.3, 0.3, 0.3, 0.5, 0.5])
 
         with col2:
             selected_fy = st.selectbox(
                 "Financial Year",
-                options=["All"] + fy_list,
+                options=["All"] + _ssp_fy_list,
                 index=0,
                 key="ssp_fy"
             )
 
+        _ssp_q = st.session_state.get("ssp_quarter", "All")
+        _ssp_m = st.session_state.get("ssp_month",   "All")
+
         with col3:
-            month_options = ["All"]
-
-            if "ssp_df" in st.session_state and not st.session_state.ssp_df.empty:
-                temp_df = st.session_state.ssp_df.copy()
-
-                temp_df["Month"] = pd.to_datetime(temp_df["Month"], errors="coerce")
-
-                temp_df = temp_df.dropna(subset=["Month"]).drop_duplicates(subset=["Month"])
-
-                # ✅ FIX chronological sorting
-                temp_df = temp_df.sort_values("Month")
-
-                month_list = temp_df["Month"].dt.strftime("%b-%Y").tolist()
-
-                month_options += month_list
-
             selected_month = st.selectbox(
                 "Month",
-                options=month_options,
+                options=["All"] + _fy_months(selected_fy),
                 index=0,
-                key="ssp_month"
+                key="ssp_month",
+                disabled=(_ssp_q not in ("", "All")),
             )
 
         with col4:
             selected_quarter = st.selectbox(
                 "Quarter",
-                options=["All", "Q1", "Q2", "Q3", "Q4"],
+                options=["All"] + _QUARTER_OPTS,
                 index=0,
-                key="ssp_quarter"
+                key="ssp_quarter",
+                disabled=(_ssp_m not in ("", "All")),
             )
 
         with col5:
@@ -3502,28 +3511,26 @@ if "SSP (Vendors)" in tabs:
         df["Age"] = (today - df["Due Date"]).dt.days
 
         # ==============================
-        # APPLY FILTERS
+        # APPLY FILTERS (Invoice Manager style)
         # ==============================
         df_filtered = df.copy()
 
-        if selected_fy != "All":
-            fy_start, fy_end = get_fy_date_range(selected_fy)
+        if selected_fy not in ("", "All"):
+            _ssp_fy_start, _ssp_fy_end = _fy_date_range(selected_fy)
             df_filtered = df_filtered[
-                (df_filtered["Month"] >= fy_start) &
-                (df_filtered["Month"] <= fy_end)
+                (df_filtered["Month"] >= _ssp_fy_start) &
+                (df_filtered["Month"] <= _ssp_fy_end)
             ]
-
-        if selected_quarter != "All":
-            q_start, q_end = get_quarter_range(selected_fy, selected_quarter)
-            df_filtered = df_filtered[
-                (df_filtered["Month"] >= q_start) &
-                (df_filtered["Month"] <= q_end)
-            ]
-            
-        if selected_month != "All":
-            df_filtered = df_filtered[
-                df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
-            ]
+            if selected_quarter not in ("", "All"):
+                q_start, q_end = _quarter_date_range(selected_fy, selected_quarter)
+                df_filtered = df_filtered[
+                    (df_filtered["Month"] >= q_start) &
+                    (df_filtered["Month"] <= q_end)
+                ]
+            elif selected_month not in ("", "All"):
+                df_filtered = df_filtered[
+                    df_filtered["Month"].dt.strftime("%b-%Y") == selected_month
+                ]
 
         # ==============================
         # FORMAT FOR DISPLAY
@@ -5646,7 +5653,11 @@ if "Edit Database" in tabs:
                 "dsp_data",
                 "ssp_data",
                 "cost_centre",
-                "invoice_details"
+                "invoice_details",
+                "bc_report",
+                "bc_teams_config",
+                "bc_activity_log",
+                "login_logs",
             ]
             st.caption("ℹ️ GST Report (All Combined) is a computed report — export only, not importable.")
 
@@ -5745,7 +5756,14 @@ if "Edit Database" in tabs:
             "Cost Centre":              "cost_centre",
             "Partner List":             "partner_list",
             "Invoice History":          "invoice_details",
-            "GST Report (All Combined)":"_gst_combined_view"
+            "GST Report (All Combined)":"_gst_combined_view",
+            # ── BC Report tables ─────────────────────────────
+            "BC Report Data":           "bc_report",
+            "BC Teams Config":          "bc_teams_config",
+            "BC Azure Config":          "bc_azure_config",
+            "BC Activity Log":          "bc_activity_log",
+            # ── System tables ────────────────────────────────
+            "Login Logs":               "login_logs",
         }
 
         sel_col, exp_col = st.columns([2, 1])
