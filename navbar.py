@@ -365,9 +365,30 @@ var gaps=[0,100,300,700,1500,3000], gi=0;
   setTimeout(function(){ gi++; boot(); attempt(); }, gaps[gi]);
 })();
 
+/* ── cancel helper — prevents timer pile-up across reruns ── */
+function cancelPending(){
+  if(window._pakNavT){
+    window._pakNavT.forEach(function(t){ clearTimeout(t); });
+  }
+  window._pakNavT=[];
+}
+function laterDo(fn,ms){
+  if(!window._pakNavT) window._pakNavT=[];
+  window._pakNavT.push(setTimeout(fn,ms));
+}
+
+/* ── close mobile nav (safe to call anytime) ── */
+function closeMobileNav(P){
+  var sb=P.getElementById('pak-sb');
+  var bd=P.getElementById('pak-mob-backdrop');
+  if(sb) sb.classList.remove('pak-mob-open');
+  if(bd) bd.classList.remove('pak-mob-open');
+}
+
 function boot(){
   var P=window.parent.document;
   if(!P||!P.body) return;
+  cancelPending();   /* kill any timers from a previous boot call */
   /* Remove login-page left panel if it survived from before login */
   ['pak-login-left','pak-login-left-css'].forEach(function(id){
     var e=P.getElementById(id); if(e) e.remove();
@@ -377,8 +398,8 @@ function boot(){
   injectHTML(P);
   injectMobileUI(P);
   hideTabBar(P);
-  setTimeout(function(){ bindAll(P); hideTabBar(P); }, 300);
-  setTimeout(function(){ hideTabBar(P); }, 1200);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
+  laterDo(function(){ hideTabBar(P); }, 1200);
 }
 
 /* ── inject mobile hamburger + backdrop (mobile only via CSS display:none on desktop) ── */
@@ -512,19 +533,17 @@ function bindAll(P){
   });
   P.querySelectorAll('.psb-item').forEach(function(el){
     el.addEventListener('click',function(){
+      /* close mobile nav FIRST — before btn.click() triggers a rerun */
+      closeMobileNav(P);
       var btn=findTab(P,this.dataset.label);
       if(btn){
-        btn.click();
         P.querySelectorAll('.psb-item').forEach(function(x){
           x.classList.remove('psb-active');
         });
         el.classList.add('psb-active');
+        /* tiny delay so close animation starts before rerun fires */
+        setTimeout(function(){ btn.click(); }, 60);
       }
-      /* close mobile nav after tap */
-      var sb=P.getElementById('pak-sb');
-      var bd=P.getElementById('pak-mob-backdrop');
-      if(sb) sb.classList.remove('pak-mob-open');
-      if(bd) bd.classList.remove('pak-mob-open');
     });
   });
 
@@ -546,9 +565,9 @@ function bindAll(P){
 }
 
 function rebind(P){
-  [200,600,1400].forEach(function(d){
-    setTimeout(function(){ bindAll(P); hideTabBar(P); }, d);
-  });
+  cancelPending();
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 700);
 }
 
 })();
