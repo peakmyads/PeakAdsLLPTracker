@@ -4450,10 +4450,23 @@ if "Costs Centre" in tabs:
                 # All screens: auto-size columns to content, horizontal scroll if needed
                 _auto_size_js = JsCode("""
                 function(params){
+                    // Step 1: enforce Particulars→Currency order and pin both left
+                    try {
+                        var stateArr = [
+                            {colId: 'Particulars', pinned: 'left', hide: false},
+                            {colId: 'Currency', pinned: 'left', hide: false}
+                        ];
+                        if(params.api.applyColumnState){
+                            params.api.applyColumnState({state: stateArr, applyOrder: true});
+                        }
+                    } catch(e) {}
+                    // Step 2: auto-size all columns to content after formatters render
                     setTimeout(function(){
-                        if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
-                        else if(params.api)  params.api.autoSizeAllColumns(false);
-                    }, 300);
+                        try {
+                            if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                            else if(params.api)  params.api.autoSizeAllColumns(false);
+                        } catch(e) {}
+                    }, 350);
                 }
                 """)
                 gridOptions["onGridReady"]         = _auto_size_js
@@ -5328,10 +5341,23 @@ if "P&L" in tabs:
                 # All screens: auto-size columns to content, horizontal scroll if needed
                 _auto_size_js = JsCode("""
                 function(params){
+                    // Step 1: enforce Particulars→Currency order and pin both left
+                    try {
+                        var stateArr = [
+                            {colId: 'Particulars', pinned: 'left', hide: false},
+                            {colId: 'Currency', pinned: 'left', hide: false}
+                        ];
+                        if(params.api.applyColumnState){
+                            params.api.applyColumnState({state: stateArr, applyOrder: true});
+                        }
+                    } catch(e) {}
+                    // Step 2: auto-size all columns to content after formatters render
                     setTimeout(function(){
-                        if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
-                        else if(params.api)  params.api.autoSizeAllColumns(false);
-                    }, 300);
+                        try {
+                            if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                            else if(params.api)  params.api.autoSizeAllColumns(false);
+                        } catch(e) {}
+                    }, 350);
                 }
                 """)
                 pnl_grid_opts["onGridReady"]         = _auto_size_js
