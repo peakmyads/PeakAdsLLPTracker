@@ -3926,11 +3926,22 @@ if "Costs Centre" in tabs:
 
         cc_view = st.radio(
             "Table View",
-            ["📅 Monthwise", "📊 Annual/FY Total Only"],
+            ["📅 Monthwise", "📊 Annual/FY Total Only", "📆 Specific Month"],
             horizontal=True,
             key="cc_table_view",
             label_visibility="collapsed"
         )
+        cc_sel_month = None
+        # Pre-compute month list from FY selection (same logic as data block)
+        _cc_fy_start = int(selected_fy.split("-")[0])
+        _cc_month_opts = [m.strftime("%b-%Y") for m in pd.date_range(
+            start=f"{_cc_fy_start}-04-01", end=f"{_cc_fy_start+1}-03-31", freq="MS")]
+        if cc_view == "📆 Specific Month":
+            cc_sel_month = st.selectbox(
+                "Select Month",
+                _cc_month_opts,
+                key="cc_month_sel"
+            )
 
         # ====================================================
         # ADD COST POPUP
@@ -4407,6 +4418,8 @@ if "Costs Centre" in tabs:
 
                 if cc_view == "📊 Annual/FY Total Only":
                     df_table = df_table[["Particulars", "Currency", "Annual/FY Total"]]
+                elif cc_view == "📆 Specific Month" and cc_sel_month:
+                    df_table = df_table[["Particulars", "Currency", cc_sel_month]]
                 else:
                     df_table = df_table[["Particulars", "Currency"] + month_cols + ["Annual/FY Total"]]
 
@@ -4447,7 +4460,8 @@ if "Costs Centre" in tabs:
                 }
                 """)
 
-                for col in month_cols + ["Annual/FY Total"]:
+                for col in [c for c in month_cols + ["Annual/FY Total"]
+                            if c in df_table.columns]:
                     gb.configure_column(
                         col,
                         type=["numericColumn"],
@@ -4482,7 +4496,7 @@ if "Costs Centre" in tabs:
                     elif _f == "Annual/FY Total": _cd["minWidth"]=120
                     else:                         _cd["minWidth"]=95
 
-                gridOptions["getRowStyle"] = JsCode("""
+                _cc_row_style_js = JsCode("""
                 function(params){
                     if(!params.data) return;
 
@@ -4509,6 +4523,7 @@ if "Costs Centre" in tabs:
                     }
                 }
                 """)
+                gridOptions["getRowStyle"] = _cc_row_style_js
 
                 custom_css = {
                     ".ag-header": {
@@ -4523,9 +4538,9 @@ if "Costs Centre" in tabs:
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(600),
-                    fit_columns_on_grid_load=(cc_view == "📊 Annual/FY Total Only"),
+                    fit_columns_on_grid_load=(cc_view != "📅 Monthwise"),
                     custom_css=custom_css,
-                    key="cost_centre_grid"
+                    key=f"cost_centre_grid_{cc_view}_{cc_sel_month or ''}"
                 )
 
 # ====================================================
@@ -4582,11 +4597,22 @@ if "P&L" in tabs:
 
         pnl_view = st.radio(
             "Table View",
-            ["📅 Monthwise", "📊 Annual/FY Total Only"],
+            ["📅 Monthwise", "📊 Annual/FY Total Only", "📆 Specific Month"],
             horizontal=True,
             key="pnl_table_view",
             label_visibility="collapsed"
         )
+        pnl_sel_month = None
+        # Pre-compute month list from FY selection
+        _pnl_fy_start = int(selected_fy_pnl.split("-")[0])
+        _pnl_month_opts = [m.strftime("%b-%Y") for m in pd.date_range(
+            start=f"{_pnl_fy_start}-04-01", end=f"{_pnl_fy_start+1}-03-31", freq="MS")]
+        if pnl_view == "📆 Specific Month":
+            pnl_sel_month = st.selectbox(
+                "Select Month",
+                _pnl_month_opts,
+                key="pnl_month_sel"
+            )
 
         st.divider()
 
@@ -5359,7 +5385,7 @@ if "P&L" in tabs:
                         elif _f == "Annual/FY Total": _cd["minWidth"]=120
                         else:                         _cd["minWidth"]=95
 
-                pnl_grid_opts["getRowStyle"] = JsCode("""
+                _pnl_row_style_js = JsCode("""
                 function(params){
                     if(!params.data) return;
                     if(params.data.Particulars === 'Net Profit'){
@@ -5402,6 +5428,8 @@ if "P&L" in tabs:
                     }
                 }
                 """)
+                pnl_grid_opts["getRowStyle"] = _pnl_row_style_js
+                pnl_grid_opts_rs = _pnl_row_style_js
 
                 pnl_custom_css = {
                     ".ag-header": {
@@ -5411,17 +5439,25 @@ if "P&L" in tabs:
                     }
                 }
 
+                # Apply view filter BEFORE building grid opts
                 if pnl_view == "📊 Annual/FY Total Only":
-                    _pnl_show_cols = ["Particulars", "Currency", "Annual/FY Total"]
-                    df_pnl_display = df_pnl[[c for c in _pnl_show_cols if c in df_pnl.columns]]
-                    # Rebuild grid opts for 3-column view
+                    _pnl_view_cols = ["Particulars", "Currency", "Annual/FY Total"]
+                elif pnl_view == "📆 Specific Month" and pnl_sel_month and pnl_sel_month in df_pnl.columns:
+                    _pnl_view_cols = ["Particulars", "Currency", pnl_sel_month]
+                else:
+                    _pnl_view_cols = None  # Monthwise — use all cols
+
+                if _pnl_view_cols:
+                    df_pnl_display = df_pnl[[c for c in _pnl_view_cols if c in df_pnl.columns]]
+                    # Rebuild compact grid opts (3 cols) with same styling
                     _gb3 = GridOptionsBuilder.from_dataframe(df_pnl_display)
                     _gb3.configure_column("Particulars", pinned="left", minWidth=160)
                     _gb3.configure_column("Currency",    pinned="left", minWidth=70)
                     _gb3.configure_default_column(resizable=True, sortable=False)
                     pnl_grid_opts = _gb3.build()
                     pnl_grid_opts["suppressHorizontalScroll"] = False
-                    pnl_grid_opts["getRowStyle"] = pnl_grid_opts.get("getRowStyle")
+                    # Preserve same row colouring
+                    pnl_grid_opts["getRowStyle"] = pnl_grid_opts_rs
                 else:
                     df_pnl_display = df_pnl
 
