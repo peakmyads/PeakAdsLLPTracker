@@ -4457,12 +4457,14 @@ if "Costs Centre" in tabs:
                         _cd.pop("width", None)
                         _cd.pop("minWidth", None)
                 else:
-                    # Small screen (<1600px): readable columns, horizontal scroll
+                    # Small screen (<1600px): auto-size to content, horizontal scroll
                     gridOptions["suppressHorizontalScroll"] = False
+                    gridOptions["onGridReady"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
+                    gridOptions["onFirstDataRendered"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
                     for _cd in gridOptions.get("columnDefs", []):
                         _cd.pop("flex", None)
                         _cd.pop("width", None)
-                        _cd["minWidth"] = 95
+                        _cd["minWidth"] = 80
 
                 gridOptions["getRowStyle"] = JsCode("""
                 function(params){
@@ -5320,13 +5322,15 @@ if "P&L" in tabs:
                             _cd.pop("width", None)
                             _cd.pop("minWidth", None)
                 else:
-                    # Small screen (<1600px): readable columns, horizontal scroll
+                    # Small screen (<1600px): auto-size to content, horizontal scroll
                     pnl_grid_opts["suppressHorizontalScroll"] = False
+                    pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
+                    pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
                     if "columnDefs" in pnl_grid_opts:
                         for _cd in pnl_grid_opts["columnDefs"]:
                             _cd.pop("flex", None)
                             _cd.pop("width", None)
-                            _cd["minWidth"] = 95
+                            _cd["minWidth"] = 80
 
                 pnl_grid_opts["getRowStyle"] = JsCode("""
                 function(params){
