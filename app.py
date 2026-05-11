@@ -361,7 +361,7 @@ def insert_dataframe_to_db(df, table_name):
 
         elif "date" in col.lower():
             df[col] = pd.to_datetime(df[col], errors="coerce")
-            df[col] = df[col].dt.strftime("%m/%d/%Y")  # or your preferred format
+            df[col] = df[col].dt.strftime("%Y-%m-%d")  # ISO format — unambiguous
 
     # ==========================================
     # 🔥 ROUND NUMERIC COLUMNS TO 2 DECIMAL
@@ -817,11 +817,20 @@ def load_partner_list():
         if col not in df.columns:
             df[col] = ""
 
-    df["Agreement Start Date"] = pd.to_datetime(
-        df["Agreement Start Date"],
-        errors="coerce",
-        dayfirst=False
-    )
+    # Try ISO YYYY-MM-DD first, fall back to M/D/YYYY (legacy UI saves),
+    # then D/M/YYYY (common for manually-entered dates by Indian/UK users).
+    _raw = df["Agreement Start Date"].astype(str).str.strip()
+    _parsed = pd.to_datetime(_raw, format="%Y-%m-%d", errors="coerce")       # ISO
+    _mask   = _parsed.isna()
+    if _mask.any():
+        _parsed[_mask] = pd.to_datetime(_raw[_mask], format="%m/%d/%Y", errors="coerce")  # M/D/YYYY
+    _mask = _parsed.isna()
+    if _mask.any():
+        _parsed[_mask] = pd.to_datetime(_raw[_mask], format="%-m/%-d/%Y", errors="coerce")  # M/D/YYYY no-pad
+    _mask = _parsed.isna()
+    if _mask.any():
+        _parsed[_mask] = pd.to_datetime(_raw[_mask], dayfirst=True, errors="coerce")      # D/M/YYYY fallback
+    df["Agreement Start Date"] = _parsed
 
     return df
 
@@ -1926,7 +1935,7 @@ if "List of Partners" in tabs:
                     "{c_fin_contact}", "{c_fin_email}"
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    f"{agreement_date.month}/{agreement_date.day}/{agreement_date.year}",
+                    agreement_date.strftime("%Y-%m-%d"),  # ISO format — unambiguous
                     legal_name,
                     short_name,
                     address,
