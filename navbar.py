@@ -284,6 +284,23 @@ def render_navbar() -> None:
         "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
         "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
 
+        # ── pak-mob-open: mirrors all :hover expanded-state rules for touch ──
+        # Labels visible
+        "#pak-sb.pak-mob-open .psb-lbl{"
+        "opacity:1!important;transform:translateX(0)!important;pointer-events:all!important;}"
+        # Icons hidden (same as :hover)
+        "#pak-sb.pak-mob-open .psb-icon{"
+        "opacity:0!important;width:0!important;font-size:0!important;overflow:hidden!important;}"
+        # Brand name visible
+        "#pak-sb.pak-mob-open .psb-brand{"
+        "opacity:1!important;max-height:24px!important;}"
+        # Username visible
+        "#pak-sb.pak-mob-open .psb-uname{"
+        "opacity:1!important;transform:translateX(0)!important;}"
+        # Logout text visible
+        "#pak-sb.pak-mob-open .psb-ltxt{"
+        "opacity:1!important;transform:translateX(0)!important;}"
+
         # ── Mobile: hamburger button + tap-to-open overlay nav ──────────────
         "@media(max-width:767px){"
 
