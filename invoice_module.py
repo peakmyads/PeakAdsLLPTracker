@@ -2563,6 +2563,8 @@ def render_invoice_module(dsp_df: pd.DataFrame):
                     unsafe_allow_html=True
                 )
                 
+                st.divider()
+                
                 act_c1, act_c2, act_c3, act_c4, act_c5, act_c6 = st.columns([1,1,1,1,1,1])
                 with act_c1:
                     open_reminder = st.button("🔔 Reminder", key="hist_open_rem_btn", type="primary", use_container_width=True)
@@ -4859,7 +4861,7 @@ def render_invoice_module(dsp_df: pd.DataFrame):
                 })
             _all_inv_df = pd.DataFrame(_all_inv_rows)
 
-            exp1, exp2, exp3 = st.columns(3)
+            exp1, exp2, exp3, exp4 = st.columns([1, 1, 1, 1])
 
             with exp1:
                 _xbuf = io.BytesIO()
@@ -4887,13 +4889,14 @@ def render_invoice_module(dsp_df: pd.DataFrame):
                 st.download_button("📊 Download Excel (.xlsx)", data=_xbuf,
                     file_name=f"GST_Report_{_per_lbl}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="gst_excel_dl")
+                    key="gst_excel_dl", use_container_width=True)
 
             with exp2:
                 _csv_data = _inr_export.to_csv(index=False).encode("utf-8-sig") if not _inr_export.empty else b""
                 if _csv_data:
                     st.download_button("📄 Download INR CSV", data=_csv_data,
-                        file_name=f"GST_INR_{_per_lbl}.csv", mime="text/csv", key="gst_csv_dl")
+                        file_name=f"GST_INR_{_per_lbl}.csv", mime="text/csv", key="gst_csv_dl",
+                        use_container_width=True)
                 else:
                     st.caption("No INR data.")
 
@@ -4943,12 +4946,13 @@ def render_invoice_module(dsp_df: pd.DataFrame):
                         except Exception:
                             pass
                     _gbuf.seek(0)
-                    _gst_dl_col, _gst_email_col = st.columns([1, 1])
+                    _gst_dl_col = exp3
+                    _gst_email_col = exp4
                     with _gst_dl_col:
                         st.download_button("📑 Download GSTR Summary", data=_gbuf,
                             file_name=f"GSTR_Summary_{_per_lbl}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="gst_gstr_dl")
+                            key="gst_gstr_dl", use_container_width=True)
                     with _gst_email_col:
                         if st.button("📤 Send GSTR via Email", key="gst_send_email_btn",
                                      type="primary", use_container_width=True):
