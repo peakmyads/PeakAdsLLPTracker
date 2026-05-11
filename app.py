@@ -4473,6 +4473,12 @@ if "Costs Centre" in tabs:
                         _cd["minWidth"] = 120
                     else:
                         _cd["minWidth"] = 95
+                # Ensure column order: Particulars → Currency → months
+                _all_cd = gridOptions.get("columnDefs", [])
+                _part   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) in ("Particulars","Description","Category")]
+                _curr   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) == "Currency"]
+                _rest   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) not in ("Particulars","Description","Category","Currency")]
+                gridOptions["columnDefs"] = _part + _curr + _rest
 
                 gridOptions["getRowStyle"] = JsCode("""
                 function(params){
@@ -5346,6 +5352,12 @@ if "P&L" in tabs:
                             _cd["minWidth"] = 120
                         else:
                             _cd["minWidth"] = 95
+                    # Ensure column order: Particulars → Currency → months
+                    _all_cd = pnl_grid_opts["columnDefs"]
+                    _part   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) in ("Particulars","Description","Category")]
+                    _curr   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) == "Currency"]
+                    _rest   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) not in ("Particulars","Description","Category","Currency")]
+                    pnl_grid_opts["columnDefs"] = _part + _curr + _rest
                 pnl_grid_opts["getRowStyle"] = JsCode("""
                 function(params){
                     if(!params.data) return;
