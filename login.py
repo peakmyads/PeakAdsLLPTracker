@@ -321,6 +321,45 @@ def login_screen():
     /* hide Streamlit's own spinner while loading screen is active */
     [data-testid="stStatusWidget"]{{display:none!important;}}
 
+    /* ── Mobile overrides (≤ 767px) ── */
+    @media(max-width:767px){{
+
+        /* Right panel fills 100% — left panel is hidden via its own CSS */
+        [data-testid="stMain"]{{
+            margin-left:0!important;
+            width:100%!important;
+            max-width:100%!important;
+            min-height:100vh!important;
+        }}
+
+        /* Tighter spacer on mobile */
+        .rp-spacer{{min-height:5vh!important;}}
+
+        /* Logo smaller, header padding tighter */
+        .rp-header{{padding:0 24px!important;margin-bottom:20px!important;}}
+        .rp-logo-img{{width:80px!important;height:80px!important;}}
+        .rp-title{{font-size:22px!important;margin:0 0 6px!important;}}
+        .rp-subtitle{{font-size:13px!important;}}
+
+        /* Field labels + inputs + button — reduce side padding for phone width */
+        .rp-field-label{{padding:0 24px!important;}}
+        [data-testid="stMain"] .stSelectbox,
+        [data-testid="stMain"] .stTextInput{{padding:0 24px!important;}}
+        [data-testid="stMain"] .stButton{{padding:0 24px!important;}}
+
+        /* Alerts / error messages — match reduced padding */
+        [data-testid="stMain"] [data-testid="stAlert"],
+        [data-testid="stMain"] .stAlert>div{{margin:0 24px!important;}}
+
+        /* Footer — tighter, wrap security badges */
+        .rp-footer{{padding:16px 24px 0!important;}}
+        .rp-security-row{{
+            flex-wrap:wrap!important;
+            gap:10px 18px!important;
+            justify-content:center!important;
+        }}
+    }}
+
     /* ── Loading screen ── */
     #pak-loading{{
         position:fixed;inset:0;z-index:99999;
@@ -439,6 +478,8 @@ def login_screen():
         ".lp-version{font-size:10.5px;font-weight:700;color:#38bdf8;"
         "background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.22);"
         "padding:3px 10px;border-radius:20px;letter-spacing:.5px;font-family:-apple-system,sans-serif;}"
+
+        "@media(max-width:767px){#pak-login-left{display:none!important;}}"
     )
 
     # 5. Left-panel HTML string
