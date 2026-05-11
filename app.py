@@ -4498,7 +4498,7 @@ if "Costs Centre" in tabs:
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(600),
-                    fit_columns_on_grid_load=True,
+                    fit_columns_on_grid_load=(sc.screen_w >= 1600),
                     custom_css=custom_css,
                     key="cost_centre_grid"
                 )
@@ -5368,7 +5368,7 @@ if "P&L" in tabs:
                     gridOptions=pnl_grid_opts,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(650),
-                    fit_columns_on_grid_load=True,
+                    fit_columns_on_grid_load=(sc.screen_w >= 1600),
                     custom_css=pnl_custom_css,
                     key="pnl_grid"
                 )
