@@ -3939,7 +3939,8 @@ if "Costs Centre" in tabs:
         if cc_view == "📆 Specific Month":
             cc_sel_month = st.selectbox(
                 "Select Month",
-                _cc_month_opts,
+                [None] + _cc_month_opts,
+                format_func=lambda x: "— Select a month —" if x is None else x,
                 key="cc_month_sel"
             )
 
@@ -4474,27 +4475,48 @@ if "Costs Centre" in tabs:
                 gridOptions["stopEditingWhenCellsLoseFocus"] = True
                 gridOptions["groupDefaultExpanded"] = 0
                 gridOptions["suppressMovableColumns"] = True
-                _cc_js = JsCode("""
-                function(params){
-                    setTimeout(function(){
-                        try {
-                            if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
-                            else if(params.api)  params.api.autoSizeAllColumns(false);
-                        } catch(e) {}
-                    }, 400);
-                }
-                """)
+                if cc_view == "📅 Monthwise":
+                    # Many columns: size to content, allow horizontal scroll
+                    _cc_js = JsCode("""
+                    function(params){
+                        setTimeout(function(){
+                            try {
+                                if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                                else if(params.api)  params.api.autoSizeAllColumns(false);
+                            } catch(e) {}
+                        }, 400);
+                    }
+                    """)
+                    gridOptions["suppressHorizontalScroll"] = False
+                    for _cd in gridOptions.get("columnDefs", []):
+                        _cd.pop("flex", None)
+                        _cd.pop("width", None)
+                        _f = _cd.get("field","") or _cd.get("headerName","")
+                        if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
+                        elif _f == "Currency":        _cd["minWidth"]=70
+                        elif _f == "Annual/FY Total": _cd["minWidth"]=120
+                        else:                         _cd["minWidth"]=95
+                else:
+                    # 3-column view: stretch to fill screen, no scroll
+                    _cc_js = JsCode("""
+                    function(params){
+                        setTimeout(function(){
+                            try { params.api.sizeColumnsToFit(); } catch(e) {}
+                        }, 200);
+                    }
+                    """)
+                    gridOptions["suppressHorizontalScroll"] = True
+                    for _cd in gridOptions.get("columnDefs", []):
+                        _cd.pop("width", None)
+                        _f = _cd.get("field","") or _cd.get("headerName","")
+                        if _f in ("Particulars","Description","Category"):
+                            _cd["flex"] = 2; _cd["minWidth"] = 160
+                        elif _f == "Currency":
+                            _cd["flex"] = 1; _cd["minWidth"] = 80
+                        else:
+                            _cd["flex"] = 2; _cd["minWidth"] = 120
                 gridOptions["onGridReady"]         = _cc_js
                 gridOptions["onFirstDataRendered"] = _cc_js
-                gridOptions["suppressHorizontalScroll"] = False
-                for _cd in gridOptions.get("columnDefs", []):
-                    _cd.pop("flex", None)
-                    _cd.pop("width", None)
-                    _f = _cd.get("field","") or _cd.get("headerName","")
-                    if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
-                    elif _f == "Currency":        _cd["minWidth"]=70
-                    elif _f == "Annual/FY Total": _cd["minWidth"]=120
-                    else:                         _cd["minWidth"]=95
 
                 _cc_row_style_js = JsCode("""
                 function(params){
@@ -4538,7 +4560,7 @@ if "Costs Centre" in tabs:
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(600),
-                    fit_columns_on_grid_load=(cc_view != "📅 Monthwise"),
+                    fit_columns_on_grid_load=False,
                     custom_css=custom_css,
                     key=f"cost_centre_grid_{cc_view}_{cc_sel_month or ''}"
                 )
@@ -4610,7 +4632,8 @@ if "P&L" in tabs:
         if pnl_view == "📆 Specific Month":
             pnl_sel_month = st.selectbox(
                 "Select Month",
-                _pnl_month_opts,
+                [None] + _pnl_month_opts,
+                format_func=lambda x: "— Select a month —" if x is None else x,
                 key="pnl_month_sel"
             )
 
@@ -5362,28 +5385,48 @@ if "P&L" in tabs:
                         c for c in pnl_grid_opts["columnDefs"]
                         if not str(c.get("field","")).startswith("::")
                     ]
-                _pnl_js = JsCode("""
-                function(params){
-                    setTimeout(function(){
-                        try {
-                            if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
-                            else if(params.api)  params.api.autoSizeAllColumns(false);
-                        } catch(e) {}
-                    }, 400);
-                }
-                """)
+                if pnl_view == "📅 Monthwise":
+                    _pnl_js = JsCode("""
+                    function(params){
+                        setTimeout(function(){
+                            try {
+                                if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                                else if(params.api)  params.api.autoSizeAllColumns(false);
+                            } catch(e) {}
+                        }, 400);
+                    }
+                    """)
+                    pnl_grid_opts["suppressHorizontalScroll"] = False
+                    if "columnDefs" in pnl_grid_opts:
+                        for _cd in pnl_grid_opts["columnDefs"]:
+                            _cd.pop("flex", None)
+                            _cd.pop("width", None)
+                            _f = _cd.get("field","") or _cd.get("headerName","")
+                            if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
+                            elif _f == "Currency":        _cd["minWidth"]=70
+                            elif _f == "Annual/FY Total": _cd["minWidth"]=120
+                            else:                         _cd["minWidth"]=95
+                else:
+                    _pnl_js = JsCode("""
+                    function(params){
+                        setTimeout(function(){
+                            try { params.api.sizeColumnsToFit(); } catch(e) {}
+                        }, 200);
+                    }
+                    """)
+                    pnl_grid_opts["suppressHorizontalScroll"] = True
+                    if "columnDefs" in pnl_grid_opts:
+                        for _cd in pnl_grid_opts["columnDefs"]:
+                            _cd.pop("width", None)
+                            _f = _cd.get("field","") or _cd.get("headerName","")
+                            if _f in ("Particulars","Description","Category"):
+                                _cd["flex"] = 2; _cd["minWidth"] = 160
+                            elif _f == "Currency":
+                                _cd["flex"] = 1; _cd["minWidth"] = 80
+                            else:
+                                _cd["flex"] = 2; _cd["minWidth"] = 120
                 pnl_grid_opts["onGridReady"]         = _pnl_js
                 pnl_grid_opts["onFirstDataRendered"] = _pnl_js
-                pnl_grid_opts["suppressHorizontalScroll"] = False
-                if "columnDefs" in pnl_grid_opts:
-                    for _cd in pnl_grid_opts["columnDefs"]:
-                        _cd.pop("flex", None)
-                        _cd.pop("width", None)
-                        _f = _cd.get("field","") or _cd.get("headerName","")
-                        if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
-                        elif _f == "Currency":        _cd["minWidth"]=70
-                        elif _f == "Annual/FY Total": _cd["minWidth"]=120
-                        else:                         _cd["minWidth"]=95
 
                 _pnl_row_style_js = JsCode("""
                 function(params){
