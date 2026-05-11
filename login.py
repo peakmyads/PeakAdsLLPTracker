@@ -231,8 +231,6 @@ def login_screen():
     # <head> and runs in the parent window context, surviving all iframe teardowns.
     # Here we just hold 6.5 s then transition to main app.
     if st.session_state.get("app_loading", False):
-        import time
-        time.sleep(6.5)
         st.session_state.logged_in   = True
         st.session_state.user        = st.session_state.pop("pending_user", "")
         st.session_state.role        = st.session_state.pop("pending_role", "")
