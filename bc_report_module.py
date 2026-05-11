@@ -393,20 +393,20 @@ def _build_welcome_msg() -> str:
     """HTML welcome message sent when a Chat ID is first configured."""
     return (
         "<p>Hi Team,</p>"
-        "<p>This is the <strong>PeakMyAds Balance Confirmation Bot</strong>, "
+        "<p>This is the <strong>PeakAds LLP Number Confirmation Bot</strong>, "
         "set up to streamline our monthly reconciliation process.</p>"
         "<p>Going forward, you will receive two types of messages from me here:</p>"
         "<ol>"
-        "<li><strong>Number Confirmation Request</strong> — sent at the beginning of each month, "
+        "<li><strong>Reminder for Number Confirmation Request</strong> — sent at the beginning of each month, "
         "asking you to confirm the previous month's activity numbers before the 10th.</li>"
-        "<li><strong>Balance Statement</strong> — a detailed breakdown of the monthly figures "
+        "<li><strong>Number Confirmation</strong> — a detailed breakdown of the monthly figures "
         "(DSP, SSP, and Net amounts) for your review and sign-off.</li>"
         "</ol>"
         "<p>Please respond promptly so we can close the month efficiently. "
         "If you have any queries, please reach out to "
         "<a href='mailto:finance@peakmyads.com'>finance@peakmyads.com</a>.</p>"
         "<p>Thank you for your cooperation!</p>"
-        "<p><strong>PeakMyAds Finance Team</strong></p>"
+        "<p><strong>PeakAds LLP Finance Team</strong></p>"
     )
 
 
@@ -506,13 +506,21 @@ def _build_send_teams_msg(row: dict) -> str:
     ssp      = float(row.get("SSP $ (BC)", 0) or 0)
     net      = float(row.get("Net $ (BC)", 0) or 0)
     deadline = _following_10th(month)
+    # Net label: negative = we owe partner, positive = partner owes us
+    if net < 0:
+        net_label = "We owe you"
+    elif net > 0:
+        net_label = "You owe us"
+    else:
+        net_label = "Settled"
     return (
         f"<p>Hi Team, please confirm below numbers for the month of "
         f"<strong>{month}</strong> before <strong>{deadline}</strong>.</p>"
         f"<ul>"
         f"<li>You owe us &nbsp;&mdash;&nbsp; <strong>${dsp:,.2f}</strong></li>"
         f"<li>We owe you &nbsp;&mdash;&nbsp; <strong>${ssp:,.2f}</strong></li>"
-        f"<li>Netted &nbsp;&mdash;&nbsp; <strong>${net:,.2f}</strong></li>"
+        f"<li>Netted &nbsp;&mdash;&nbsp; <strong>${net:,.2f}</strong>"
+        f" &nbsp;({net_label})</li>"
         f"</ul>"
     )
 
@@ -1197,17 +1205,19 @@ def _render_table_and_actions(df: pd.DataFrame):
     st.divider()
 
     n = len(selected)
-    send_label = (
-        f"📤 Send Teams → {selected[0].get('Partner Name', '')}"
-        if n == 1 else "📤 Send Teams"
-    )
+    if n == 0:
+        send_label = "📤 Send Teams"
+    elif n == 1:
+        send_label = f"📤 Send Teams → {selected[0].get('Partner Name', '')}"
+    else:
+        send_label = f"📤 Send Teams ({n} partners)"
 
     b1, b2, b3, b4, _ = st.columns([1.8, 1.6, 0.9, 1.2, 1.2])
     with b1:
         send_clicked = st.button(
-            send_label, disabled=(n != 1), key="bc_send_btn",
+            send_label, disabled=(n < 1), key="bc_send_btn",
             type="secondary",
-            help="Click '📨 Send' cell in a row to select it, then press here",
+            help="Select one or more rows via checkbox, then click to send numbers to all selected partners",
         )
     with b2:
         numconf_clicked = st.button(
@@ -1228,31 +1238,47 @@ def _render_table_and_actions(df: pd.DataFrame):
             help="Save C DSP $ / C SSP $ edits to database",
         )
 
-    # ── Send Teams (single row) ──────────────────────────────────────────
+    # ── Send Teams (multi-row) ───────────────────────────────────────────
     if send_clicked and selected:
-        row     = selected[0]
-        partner = str(row.get("Partner Name") or row.get("partner_name") or "").strip()
-        chat_id = teams_cfg.get(partner, "")
-        if not chat_id:
-            st.error(
-                f"⚠️ No Teams Chat ID configured for **{partner}**. "
-                "Open **⚙️ Azure / Teams Configuration** above and add it."
-            )
-        elif _require_azure(azure_cfg):
+        if _require_azure(azure_cfg):
+            token = None
             try:
                 token = _get_token(azure_cfg)
-                html  = _build_send_teams_msg(row)
-                _send_graph_message(token, chat_id, html)
-                _set_status(str(row["Month"]), partner, "Sent")
-                _log_action(partner, str(row.get("Month","")), "Send Teams")
-                st.session_state["bc_log_open"] = True
-                st.cache_data.clear()
-                st.success(
-                    f"✅ Teams message sent to **{partner}** ({row['Month']})."
-                )
-                st.rerun()
             except Exception as ex:
-                st.error(f"❌ Teams send failed: {ex}")
+                st.error(f"❌ Azure token error: {ex}")
+
+            if token:
+                ok_rows, errs = [], []
+                for row in selected:
+                    partner = str(row.get("Partner Name") or row.get("partner_name") or "").strip()
+                    month   = str(row.get("Month") or row.get("month") or "").strip()
+                    if not partner or partner.lower() == "none":
+                        continue
+                    chat_id = teams_cfg.get(partner, "")
+                    if not chat_id:
+                        errs.append(f"**{partner}** — No Chat ID configured")
+                        continue
+                    try:
+                        html = _build_send_teams_msg(row)
+                        _send_graph_message(token, chat_id, html)
+                        _set_status(month, partner, "Sent")
+                        _log_action(partner, month, "Send Teams")
+                        ok_rows.append(partner)
+                    except Exception as ex:
+                        _log_action(partner, month, "Send Teams", f"Failed: {ex}")
+                        errs.append(f"**{partner}** — {ex}")
+
+                if ok_rows:
+                    st.session_state["bc_log_open"] = True
+                    st.session_state["bc_grid_key"] = st.session_state.get("bc_grid_key", 0) + 1
+                    st.cache_data.clear()
+                    st.success(
+                        f"✅ Teams message sent to {len(ok_rows)} partner(s): "
+                        + ", ".join(ok_rows)
+                    )
+                    st.rerun()
+                for e in errs:
+                    st.warning(e)
 
     # ── Number Confirmation (multi-row) ──────────────────────────────────
     if numconf_clicked and selected:
@@ -1393,10 +1419,28 @@ def _render_table_and_actions(df: pd.DataFrame):
     if push_clicked and selected:
         dups = _check_duplicates(selected)
         if dups:
-            # Store pending push in session state for confirmation step
+            # Has duplicates — ask user what to do
             st.session_state["bc_push_pending"] = selected
             st.session_state["bc_push_dups"] = dups
             st.rerun()
+        else:
+            # No duplicates — push directly without asking
+            try:
+                _ins, _upd = _push_to_master(selected)
+                for _k in ["master_df","dsp_df","ssp_df",
+                           "dsp_edit_df","ssp_edit_df","data_initialized"]:
+                    if _k in st.session_state:
+                        del st.session_state[_k]
+                st.cache_data.clear()
+                _msg = []
+                if _ins: _msg.append(f"{_ins} new row(s) inserted")
+                if _upd: _msg.append(f"{_upd} existing row(s) updated")
+                if not _msg: _msg = ["no changes — already up to date"]
+                st.success("✅ Push complete: " + ", ".join(_msg) +
+                           ". Master Data, DSP and SSP tabs will reload automatically.")
+                st.rerun()
+            except Exception as ex:
+                st.error(f"Push failed: {ex}")
 
     # Duplicate confirmation dialog
     if st.session_state.get("bc_push_pending") and st.session_state.get("bc_push_dups"):
@@ -1442,83 +1486,70 @@ def _render_table_and_actions(df: pd.DataFrame):
                 st.rerun()
     
     st.divider()
-    
+
     # ── Activity Log ─────────────────────────────────────────────────────
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-    # Always show the log section (not inside expander) so it updates live
-    st.markdown("""
-    <div style="background:rgba(0,51,102,0.06);border:1px solid rgba(0,51,102,0.12);
-        border-radius:8px;padding:8px 16px;margin:4px 0 8px 0;
-        display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;font-weight:700;color:#003366;">
-            📋 Activity Log — Teams Messages Sent</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.divider()
+    with st.expander("📋 Activity Log — Teams Messages Sent", expanded=False):
+        # Always reload from DB fresh (no caching)
+        log_df = _load_activity_log(limit=100)
 
-    # Always reload from DB fresh (no caching)
-    log_df = _load_activity_log(limit=100)
+        _lc1, _lc2, _lc3, _lc4 = st.columns([1, 1, 0.6, 2.4])
+        with _lc1:
+            _filter_partner = st.selectbox(
+                "Filter by Partner",
+                ["All"] + sorted(log_df["Partner"].dropna().unique().tolist())
+                if not log_df.empty else ["All"],
+                key="bc_log_partner_filter",
+            )
+        with _lc2:
+            _filter_action = st.selectbox(
+                "Filter by Action",
+                ["All"] + sorted(log_df["Action"].dropna().unique().tolist())
+                if not log_df.empty else ["All"],
+                key="bc_log_action_filter",
+            )
+        with _lc3:
+            if st.button("🔄 Refresh", key="bc_log_refresh", help="Refresh log"):
+                st.rerun()
+        with _lc4:
+            st.markdown(
+                "<div style='font-size:11px;color:#888;padding-top:8px;'>"
+                "🔵 Number Confirmation &nbsp;|&nbsp; 🟢 Send Teams "
+                "&nbsp;|&nbsp; 🟡 Welcome &nbsp;|&nbsp; 🔴 Failed"
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
-    _lc1, _lc2, _lc3, _lc4 = st.columns([1, 1, 0.6, 2.4])
-    with _lc1:
-        _filter_partner = st.selectbox(
-            "Filter by Partner",
-            ["All"] + sorted(log_df["Partner"].dropna().unique().tolist())
-            if not log_df.empty else ["All"],
-            key="bc_log_partner_filter",
-        )
-    with _lc2:
-        _filter_action = st.selectbox(
-            "Filter by Action",
-            ["All"] + sorted(log_df["Action"].dropna().unique().tolist())
-            if not log_df.empty else ["All"],
-            key="bc_log_action_filter",
-        )
-    with _lc3:
-        if st.button("🔄 Refresh", key="bc_log_refresh", help="Refresh log"):
-            st.rerun()
-    with _lc4:
-        st.markdown(
-            "<div style='font-size:11px;color:#888;padding-top:8px;'>"
-            "🔵 Number Confirmation &nbsp;|&nbsp; 🟢 Send Teams "
-            "&nbsp;|&nbsp; 🟡 Welcome &nbsp;|&nbsp; 🔴 Failed"
-            "</div>",
-            unsafe_allow_html=True,
-        )
+        if log_df.empty:
+            st.info("No messages sent yet — log will appear here after first send.")
+        else:
+            disp_df = log_df.copy()
+            if _filter_partner != "All":
+                disp_df = disp_df[disp_df["Partner"] == _filter_partner]
+            if _filter_action != "All":
+                disp_df = disp_df[disp_df["Action"] == _filter_action]
 
-    if log_df.empty:
-        st.info("No messages sent yet — log will appear here after first send.")
-    else:
-        disp_df = log_df.copy()
-        if _filter_partner != "All":
-            disp_df = disp_df[disp_df["Partner"] == _filter_partner]
-        if _filter_action != "All":
-            disp_df = disp_df[disp_df["Action"] == _filter_action]
+            def _log_style(row):
+                action = str(row.get("Action",""))
+                status = str(row.get("Status",""))
+                if "Failed" in status:
+                    return ["background-color:#ffe8e8;color:#721c24"] * len(row)
+                if "Number Confirmation" in action:
+                    return ["background-color:#e8f4ff;color:#004085"] * len(row)
+                if "Send Teams" in action:
+                    return ["background-color:#e8fff0;color:#155724"] * len(row)
+                if "Welcome" in action:
+                    return ["background-color:#fff8e8;color:#856404"] * len(row)
+                return [""] * len(row)
 
-        def _log_style(row):
-            action = str(row.get("Action",""))
-            status = str(row.get("Status",""))
-            if "Failed" in status:
-                return ["background-color:#ffe8e8;color:#721c24"] * len(row)
-            if "Number Confirmation" in action:
-                return ["background-color:#e8f4ff;color:#004085"] * len(row)
-            if "Send Teams" in action:
-                return ["background-color:#e8fff0;color:#155724"] * len(row)
-            if "Welcome" in action:
-                return ["background-color:#fff8e8;color:#856404"] * len(row)
-            return [""] * len(row)
-
-        st.dataframe(
-            disp_df.style.apply(_log_style, axis=1),
-            use_container_width=True,
-            hide_index=True,
-            height=min(400, 38 + len(disp_df) * 35),
-        )
-        st.caption(f"Total: {len(log_df)} entries | Showing: {len(disp_df)}")
-        
-        st.divider()
+            st.dataframe(
+                disp_df.style.apply(_log_style, axis=1),
+                use_container_width=True,
+                hide_index=True,
+                height=min(400, 38 + len(disp_df) * 35),
+            )
+            st.caption(f"Total: {len(log_df)} entries | Showing: {len(disp_df)}")
 
     return selected, edited_df
     
