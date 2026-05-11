@@ -45,7 +45,7 @@ def _pct(v):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _kpi(title, value, subtitle="", icon="", gradient=None, is_pct=False):
-    """Render one gradient KPI card."""
+    """Render one gradient KPI card — uniform height, responsive font."""
     _GRADIENTS = {
         "green":  "linear-gradient(135deg,#0f5132,#198754)",
         "red":    "linear-gradient(135deg,#842029,#dc3545)",
@@ -65,27 +65,14 @@ def _kpi(title, value, subtitle="", icon="", gradient=None, is_pct=False):
         display = str(value)
 
     sub_html = (
-        f'<div style="font-size:11px;color:rgba(255,255,255,0.75);margin-top:4px;">{subtitle}</div>'
+        f'<div style="font-size:10px;color:rgba(255,255,255,0.75);margin-top:4px;">{subtitle}</div>'
         if subtitle else ""
     )
 
     st.markdown(f"""
-    <div style="
-        background:{bg};
-        padding:18px 20px;
-        border-radius:14px;
-        box-shadow:0 6px 20px rgba(0,0,0,0.22);
-        margin-bottom:8px;
-        min-height:95px;
-    ">
-        <div style="font-size:12px;font-weight:700;color:#FFEF00;
-                    text-transform:uppercase;letter-spacing:.6px;">
-            {icon}&nbsp;{title}
-        </div>
-        <div style="font-size:28px;font-weight:900;color:#fff;margin-top:6px;
-                    letter-spacing:-0.5px;">
-            {display}
-        </div>
+    <div class="pak-kpi-card" style="background:{bg};">
+        <div class="pak-kpi-title">{icon}&nbsp;{title}</div>
+        <div class="pak-kpi-value">{display}</div>
         {sub_html}
     </div>
     """, unsafe_allow_html=True)
