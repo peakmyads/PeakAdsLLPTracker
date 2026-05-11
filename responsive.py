@@ -520,6 +520,51 @@ div[data-testid="stMetricValue"] {
     /* AgGrid — allow horizontal scroll on mobile */
     .ag-root-wrapper {
         overflow-x : auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* ── Wide multi-column tables (P&L, Costs Centre) — horizontal scroll ── */
+    /* Wrap the stMarkdown/block-container so the TABLE can be wider than viewport */
+    .block-container [data-testid="stMarkdownContainer"],
+    [data-testid="stMarkdownContainer"] {
+        overflow-x : auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        max-width  : calc(100vw - 12px) !important;
+    }
+    /* HTML tables inside markdown: don't squish, let them scroll */
+    .stMarkdown table,
+    [data-testid="stMarkdownContainer"] table {
+        width      : max-content !important;
+        min-width  : 100% !important;
+        font-size  : 10px !important;
+    }
+    .stMarkdown table th,
+    .stMarkdown table td,
+    [data-testid="stMarkdownContainer"] table th,
+    [data-testid="stMarkdownContainer"] table td {
+        min-width  : 52px !important;
+        max-width  : 110px !important;
+        white-space: nowrap !important;
+        padding    : 3px 5px !important;
+        font-size  : 10px !important;
+        overflow   : hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    /* AgGrid: enforce minimum column width so text isn't squished to 2 chars */
+    .ag-header-cell {
+        min-width  : 65px !important;
+    }
+    .ag-cell {
+        min-width  : 55px !important;
+        font-size  : 10.5px !important;
+    }
+    /* AgGrid iframe wrapper — allow horizontal scroll */
+    [data-testid="stCustomComponentV1"],
+    iframe[title*="st_aggrid"],
+    iframe[title*="AgGrid"] {
+        overflow-x : auto !important;
+        width      : 100% !important;
+        max-width  : calc(100vw - 12px) !important;
     }
 
     /* Selectbox & multiselect full width */
