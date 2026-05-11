@@ -4447,15 +4447,22 @@ if "Costs Centre" in tabs:
                 gridOptions["stopEditingWhenCellsLoseFocus"] = True
                 gridOptions["groupDefaultExpanded"] = 0
                 gridOptions["suppressMovableColumns"] = True
-                gridOptions["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                gridOptions["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                gridOptions["suppressHorizontalScroll"] = True
-
-                # Force every column to flex-fill the available width
-                for _cd in gridOptions.get("columnDefs", []):
-                    _cd["flex"] = 1
-                    _cd.pop("width", None)
-                    _cd.pop("minWidth", None)
+                if sc.screen_w >= 1600:
+                    # Large screen (>=1600px): fit all columns to screen, no scroll
+                    gridOptions["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                    gridOptions["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                    gridOptions["suppressHorizontalScroll"] = True
+                    for _cd in gridOptions.get("columnDefs", []):
+                        _cd["flex"] = 1
+                        _cd.pop("width", None)
+                        _cd.pop("minWidth", None)
+                else:
+                    # Small screen (<1600px): readable columns, horizontal scroll
+                    gridOptions["suppressHorizontalScroll"] = False
+                    for _cd in gridOptions.get("columnDefs", []):
+                        _cd.pop("flex", None)
+                        _cd.pop("width", None)
+                        _cd["minWidth"] = 95
 
                 gridOptions["getRowStyle"] = JsCode("""
                 function(params){
@@ -5295,21 +5302,31 @@ if "P&L" in tabs:
                 pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
                 pnl_grid_opts["groupDefaultExpanded"] = 0
                 pnl_grid_opts["suppressMovableColumns"] = True
-                pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                pnl_grid_opts["suppressHorizontalScroll"] = True
-
                 # Explicitly suppress any auto-generated columns
                 if "columnDefs" in pnl_grid_opts:
                     pnl_grid_opts["columnDefs"] = [
                         c for c in pnl_grid_opts["columnDefs"]
                         if not str(c.get("field", "")).startswith("::")
                     ]
-                    # Force every column to flex-fill the available width
-                    for _cd in pnl_grid_opts["columnDefs"]:
-                        _cd["flex"] = 1
-                        _cd.pop("width", None)
-                        _cd.pop("minWidth", None)
+
+                if sc.screen_w >= 1600:
+                    # Large screen (>=1600px): fit all columns to screen, no scroll
+                    pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                    pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
+                    pnl_grid_opts["suppressHorizontalScroll"] = True
+                    if "columnDefs" in pnl_grid_opts:
+                        for _cd in pnl_grid_opts["columnDefs"]:
+                            _cd["flex"] = 1
+                            _cd.pop("width", None)
+                            _cd.pop("minWidth", None)
+                else:
+                    # Small screen (<1600px): readable columns, horizontal scroll
+                    pnl_grid_opts["suppressHorizontalScroll"] = False
+                    if "columnDefs" in pnl_grid_opts:
+                        for _cd in pnl_grid_opts["columnDefs"]:
+                            _cd.pop("flex", None)
+                            _cd.pop("width", None)
+                            _cd["minWidth"] = 95
 
                 pnl_grid_opts["getRowStyle"] = JsCode("""
                 function(params){
