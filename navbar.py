@@ -283,6 +283,49 @@ def render_navbar() -> None:
         "opacity:0;transform:translateX(-6px);"
         "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
         "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
+
+        # ── Mobile: hamburger button + tap-to-open overlay nav ──────────────
+        "@media(max-width:767px){"
+
+        # floating hamburger — always visible on mobile
+        "#pak-mob-toggle{"
+        "position:fixed;top:10px;left:10px;z-index:100001;"
+        "width:40px;height:40px;"
+        "background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);"
+        "border-radius:9px;border:none;cursor:pointer;"
+        "font-size:20px;color:#fff;"
+        "display:flex;align-items:center;justify-content:center;"
+        "box-shadow:0 3px 14px rgba(0,118,206,0.50);"
+        "transition:transform .14s,background .18s;"
+        "-webkit-tap-highlight-color:transparent;"
+        "touch-action:manipulation;}"
+        "#pak-mob-toggle:active{transform:scale(0.91);}"
+
+        # semi-transparent backdrop — tap to close
+        "#pak-mob-backdrop{"
+        "position:fixed;inset:0;z-index:99997;"
+        "background:rgba(0,0,0,0.52);"
+        "display:none;"
+        "-webkit-tap-highlight-color:transparent;}"
+        "#pak-mob-backdrop.pak-mob-open{display:block!important;}"
+
+        # sidebar — overlays content (doesn't push it) on mobile
+        "#pak-sb{"
+        "width:0!important;"
+        "transition:width .28s cubic-bezier(.4,0,.2,1)!important;}"
+        "#pak-sb.pak-mob-open{width:190px!important;}"
+
+        # content stays full-width — nav overlays, doesn't push
+        "[data-testid='stMain']{"
+        "margin-left:0!important;"
+        "width:100vw!important;"
+        "max-width:100vw!important;}"
+        "body:has(#pak-sb:hover) [data-testid='stMain']{"
+        "margin-left:0!important;"
+        "width:100vw!important;"
+        "max-width:100vw!important;}"
+
+        "}"  # end @media
     )
 
     # ── 4. IFRAME HTML + JS ──────────────────────────────────────────────────
@@ -315,9 +358,39 @@ function boot(){
   if(P.getElementById('pak-sb')){ rebind(P); return; }
   injectCSS(P);
   injectHTML(P);
+  injectMobileUI(P);
   hideTabBar(P);
   setTimeout(function(){ bindAll(P); hideTabBar(P); }, 300);
   setTimeout(function(){ hideTabBar(P); }, 1200);
+}
+
+/* ── inject mobile hamburger + backdrop (mobile only via CSS display:none on desktop) ── */
+function injectMobileUI(P){
+  if(P.getElementById('pak-mob-toggle')) return;
+
+  /* backdrop — tap outside to close */
+  var bd=P.createElement('div');
+  bd.id='pak-mob-backdrop';
+  bd.addEventListener('click',function(){
+    var sb=P.getElementById('pak-sb');
+    if(sb) sb.classList.remove('pak-mob-open');
+    bd.classList.remove('pak-mob-open');
+  });
+  P.body.insertBefore(bd, P.body.firstChild);
+
+  /* hamburger toggle button */
+  var btn=P.createElement('button');
+  btn.id='pak-mob-toggle';
+  btn.innerHTML='&#9776;';
+  btn.setAttribute('aria-label','Open navigation');
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var sb=P.getElementById('pak-sb');
+    if(!sb) return;
+    var open=sb.classList.toggle('pak-mob-open');
+    bd.classList.toggle('pak-mob-open', open);
+  });
+  P.body.insertBefore(btn, P.body.firstChild);
 }
 
 /* ── inject CSS into parent <head> ── */
@@ -430,6 +503,11 @@ function bindAll(P){
         });
         el.classList.add('psb-active');
       }
+      /* close mobile nav after tap */
+      var sb=P.getElementById('pak-sb');
+      var bd=P.getElementById('pak-mob-backdrop');
+      if(sb) sb.classList.remove('pak-mob-open');
+      if(bd) bd.classList.remove('pak-mob-open');
     });
   });
 
