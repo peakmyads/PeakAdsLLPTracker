@@ -3924,6 +3924,14 @@ if "Costs Centre" in tabs:
             if st.button("+ Add Cost", key="add_cost_btn"):
                 st.session_state.open_cost_popup = True
 
+        cc_view = st.radio(
+            "Table View",
+            ["📅 Monthwise", "📊 Annual/FY Total Only"],
+            horizontal=True,
+            key="cc_table_view",
+            label_visibility="collapsed"
+        )
+
         # ====================================================
         # ADD COST POPUP
         # ====================================================
@@ -4397,7 +4405,10 @@ if "Costs Centre" in tabs:
                     "Annual/FY Total"
                 ] = np.nan
 
-                df_table = df_table[["Particulars", "Currency"] + month_cols + ["Annual/FY Total"]]
+                if cc_view == "📊 Annual/FY Total Only":
+                    df_table = df_table[["Particulars", "Currency", "Annual/FY Total"]]
+                else:
+                    df_table = df_table[["Particulars", "Currency"] + month_cols + ["Annual/FY Total"]]
 
                 # =====================================================
                 # GROUPING
@@ -4512,7 +4523,7 @@ if "Costs Centre" in tabs:
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(600),
-                    fit_columns_on_grid_load=False,
+                    fit_columns_on_grid_load=(cc_view == "📊 Annual/FY Total Only"),
                     custom_css=custom_css,
                     key="cost_centre_grid"
                 )
@@ -4568,6 +4579,14 @@ if "P&L" in tabs:
         with col5:
             st.markdown("<br>", unsafe_allow_html=True)
             export_clicked_pnl = st.button("📤 Export Visible", key="pnl_export_btn")
+
+        pnl_view = st.radio(
+            "Table View",
+            ["📅 Monthwise", "📊 Annual/FY Total Only"],
+            horizontal=True,
+            key="pnl_table_view",
+            label_visibility="collapsed"
+        )
 
         st.divider()
 
@@ -5392,12 +5411,26 @@ if "P&L" in tabs:
                     }
                 }
 
+                if pnl_view == "📊 Annual/FY Total Only":
+                    _pnl_show_cols = ["Particulars", "Currency", "Annual/FY Total"]
+                    df_pnl_display = df_pnl[[c for c in _pnl_show_cols if c in df_pnl.columns]]
+                    # Rebuild grid opts for 3-column view
+                    _gb3 = GridOptionsBuilder.from_dataframe(df_pnl_display)
+                    _gb3.configure_column("Particulars", pinned="left", minWidth=160)
+                    _gb3.configure_column("Currency",    pinned="left", minWidth=70)
+                    _gb3.configure_default_column(resizable=True, sortable=False)
+                    pnl_grid_opts = _gb3.build()
+                    pnl_grid_opts["suppressHorizontalScroll"] = False
+                    pnl_grid_opts["getRowStyle"] = pnl_grid_opts.get("getRowStyle")
+                else:
+                    df_pnl_display = df_pnl
+
                 AgGrid(
-                    df_pnl,
+                    df_pnl_display,
                     gridOptions=pnl_grid_opts,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(650),
-                    fit_columns_on_grid_load=False,
+                    fit_columns_on_grid_load=(pnl_view == "📊 Annual/FY Total Only"),
                     custom_css=pnl_custom_css,
                     key="pnl_grid"
                 )
