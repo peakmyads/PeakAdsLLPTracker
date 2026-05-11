@@ -4447,24 +4447,30 @@ if "Costs Centre" in tabs:
                 gridOptions["stopEditingWhenCellsLoseFocus"] = True
                 gridOptions["groupDefaultExpanded"] = 0
                 gridOptions["suppressMovableColumns"] = True
-                if sc.screen_w >= 1600:
-                    # Large screen (>=1600px): fit all columns to screen, no scroll
-                    gridOptions["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                    gridOptions["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                    gridOptions["suppressHorizontalScroll"] = True
-                    for _cd in gridOptions.get("columnDefs", []):
-                        _cd["flex"] = 1
-                        _cd.pop("width", None)
-                        _cd.pop("minWidth", None)
-                else:
-                    # Small screen (<1600px): auto-size to content, horizontal scroll
-                    gridOptions["suppressHorizontalScroll"] = False
-                    gridOptions["onGridReady"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
-                    gridOptions["onFirstDataRendered"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
-                    for _cd in gridOptions.get("columnDefs", []):
-                        _cd.pop("flex", None)
-                        _cd.pop("width", None)
-                        _cd["minWidth"] = 80
+                # All screens: auto-size columns to content, horizontal scroll if needed
+                _auto_size_js = JsCode("""
+                function(params){
+                    setTimeout(function(){
+                        if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                        else if(params.api)  params.api.autoSizeAllColumns(false);
+                    }, 300);
+                }
+                """)
+                gridOptions["onGridReady"]         = _auto_size_js
+                gridOptions["onFirstDataRendered"] = _auto_size_js
+                gridOptions["suppressHorizontalScroll"] = False
+                for _cd in gridOptions.get("columnDefs", []):
+                    _cd.pop("flex", None)
+                    _cd.pop("width", None)
+                    _f = _cd.get("field", "") or _cd.get("headerName", "")
+                    if _f in ("Particulars", "Description", "Category"):
+                        _cd["minWidth"] = 160
+                    elif _f == "Currency":
+                        _cd["minWidth"] = 70
+                    elif _f == "Annual/FY Total":
+                        _cd["minWidth"] = 120
+                    else:
+                        _cd["minWidth"] = 95
 
                 gridOptions["getRowStyle"] = JsCode("""
                 function(params){
@@ -4507,7 +4513,7 @@ if "Costs Centre" in tabs:
                     gridOptions=gridOptions,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(600),
-                    fit_columns_on_grid_load=(sc.screen_w >= 1600),
+                    fit_columns_on_grid_load=False,
                     custom_css=custom_css,
                     key="cost_centre_grid"
                 )
@@ -5311,27 +5317,31 @@ if "P&L" in tabs:
                         if not str(c.get("field", "")).startswith("::")
                     ]
 
-                if sc.screen_w >= 1600:
-                    # Large screen (>=1600px): fit all columns to screen, no scroll
-                    pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                    pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.api.sizeColumnsToFit(); }")
-                    pnl_grid_opts["suppressHorizontalScroll"] = True
-                    if "columnDefs" in pnl_grid_opts:
-                        for _cd in pnl_grid_opts["columnDefs"]:
-                            _cd["flex"] = 1
-                            _cd.pop("width", None)
-                            _cd.pop("minWidth", None)
-                else:
-                    # Small screen (<1600px): auto-size to content, horizontal scroll
-                    pnl_grid_opts["suppressHorizontalScroll"] = False
-                    pnl_grid_opts["onGridReady"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
-                    pnl_grid_opts["onFirstDataRendered"] = JsCode("function(params){ params.columnApi.autoSizeAllColumns(); }")
-                    if "columnDefs" in pnl_grid_opts:
-                        for _cd in pnl_grid_opts["columnDefs"]:
-                            _cd.pop("flex", None)
-                            _cd.pop("width", None)
-                            _cd["minWidth"] = 80
-
+                # All screens: auto-size columns to content, horizontal scroll if needed
+                _auto_size_js = JsCode("""
+                function(params){
+                    setTimeout(function(){
+                        if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
+                        else if(params.api)  params.api.autoSizeAllColumns(false);
+                    }, 300);
+                }
+                """)
+                pnl_grid_opts["onGridReady"]         = _auto_size_js
+                pnl_grid_opts["onFirstDataRendered"] = _auto_size_js
+                pnl_grid_opts["suppressHorizontalScroll"] = False
+                if "columnDefs" in pnl_grid_opts:
+                    for _cd in pnl_grid_opts["columnDefs"]:
+                        _cd.pop("flex", None)
+                        _cd.pop("width", None)
+                        _f = _cd.get("field", "") or _cd.get("headerName", "")
+                        if _f in ("Particulars", "Description", "Category"):
+                            _cd["minWidth"] = 160
+                        elif _f == "Currency":
+                            _cd["minWidth"] = 70
+                        elif _f == "Annual/FY Total":
+                            _cd["minWidth"] = 120
+                        else:
+                            _cd["minWidth"] = 95
                 pnl_grid_opts["getRowStyle"] = JsCode("""
                 function(params){
                     if(!params.data) return;
@@ -5389,7 +5399,7 @@ if "P&L" in tabs:
                     gridOptions=pnl_grid_opts,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(650),
-                    fit_columns_on_grid_load=(sc.screen_w >= 1600),
+                    fit_columns_on_grid_load=False,
                     custom_css=pnl_custom_css,
                     key="pnl_grid"
                 )
