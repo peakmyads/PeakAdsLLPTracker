@@ -367,10 +367,58 @@ div[data-testid="stMetricValue"] {
     font-size : clamp(14px, 1.4vw, 28px) !important;
 }
 
-/* KPI container cards */
-.kpi-container {
-    padding : var(--pak-card-pad) !important;
+/* ═══════════════════════════════════════════════════════════════
+   KPI CARDS — uniform height, responsive font
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Force all KPI columns in a row to stretch to equal height */
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
+    align-items: stretch !important;
 }
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+    > [data-testid="stVerticalBlockBorderWrapper"] {
+    display       : flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+    > [data-testid="stVerticalBlockBorderWrapper"]
+    > div {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.pak-kpi-card {
+    padding       : clamp(10px, 1.2vw, 20px) clamp(10px, 1.4vw, 20px);
+    border-radius : 14px;
+    box-shadow    : 0 6px 20px rgba(0,0,0,0.22);
+    margin-bottom : 8px;
+    height        : 100%;
+    min-height    : 88px;
+    display       : flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing    : border-box;
+}
+.pak-kpi-title {
+    font-size     : clamp(9px, 0.75vw, 12px);
+    font-weight   : 700;
+    color         : #FFEF00;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    line-height   : 1.3;
+}
+.pak-kpi-value {
+    font-size     : clamp(15px, 1.6vw, 28px);
+    font-weight   : 900;
+    color         : #fff;
+    margin-top    : 4px;
+    letter-spacing: -0.5px;
+    line-height   : 1.15;
+    word-break    : break-all;
+}
+
+
 
 /* AgGrid cell text — scales with viewport */
 .ag-cell, .ag-header-cell-text {
@@ -399,29 +447,55 @@ div[data-testid="stMetricValue"] {
     div.stDownloadButton > button {
         min-height    : 44px !important;
         padding       : 10px 12px !important;
-        font-size     : 12px !important;
+        font-size     : 11px !important;
         border-radius : 8px  !important;
         width         : 100% !important;
+        white-space   : normal !important;
+        word-break    : break-word !important;
+        line-height   : 1.3 !important;
     }
 
     /* Tabs — smaller, scrollable */
     div[data-testid="stTabs"] button[role="tab"] {
-        font-size : 10.5px !important;
-        padding   : 5px 8px !important;
+        font-size : 10px !important;
+        padding   : 5px 7px !important;
         min-width : 0 !important;
+        white-space: nowrap !important;
     }
     div[data-baseweb="tab-list"] {
         gap         : 2px !important;
         padding     : 4px 4px !important;
         overflow-x  : auto !important;
         flex-wrap   : nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
-    /* Stack columns vertically */
-    [data-testid="stHorizontalBlock"] {
+    /* KPI cards — 2 per row on mobile */
+    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
+        flex-wrap : wrap !important;
+    }
+    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+        > [data-testid="stVerticalBlockBorderWrapper"] {
+        width   : calc(50% - 4px) !important;
+        flex    : none !important;
+        min-width: 0 !important;
+    }
+    .pak-kpi-card {
+        min-height : 70px !important;
+    }
+    .pak-kpi-value {
+        font-size  : clamp(14px, 4.5vw, 20px) !important;
+    }
+    .pak-kpi-title {
+        font-size  : 9px !important;
+    }
+
+    /* Stack ALL other columns vertically */
+    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card)) {
         flex-direction: column !important;
     }
-    [data-testid="stHorizontalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card))
+        > [data-testid="stVerticalBlockBorderWrapper"] {
         width   : 100% !important;
         flex    : none !important;
     }
@@ -447,6 +521,14 @@ div[data-testid="stMetricValue"] {
     .ag-root-wrapper {
         overflow-x : auto !important;
     }
+
+    /* Selectbox & multiselect full width */
+    div[data-testid="stSelectbox"],
+    div[data-testid="stMultiSelect"],
+    div[data-testid="stDateInput"],
+    div[data-testid="stTextInput"] {
+        width: 100% !important;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -457,13 +539,16 @@ div[data-testid="stMetricValue"] {
     div.stButton > button,
     div.stDownloadButton > button {
         min-height    : 38px !important;
-        font-size     : 11.5px !important;
-        padding       : 6px 11px !important;
+        font-size     : 11px !important;
+        padding       : 6px 10px !important;
+        white-space   : normal !important;
+        word-break    : break-word !important;
+        line-height   : 1.3 !important;
     }
 
     div[data-testid="stTabs"] button[role="tab"] {
         font-size : 11px !important;
-        padding   : 5px 10px !important;
+        padding   : 5px 9px !important;
     }
 
     div[data-testid="stMetricValue"] {
@@ -473,6 +558,19 @@ div[data-testid="stMetricValue"] {
     .block-container {
         padding-left : 10px !important;
         padding-right: 10px !important;
+    }
+
+    /* KPI cards — 3 per row on tablet (6-col row wraps to 2 rows of 3) */
+    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+        > [data-testid="stVerticalBlockBorderWrapper"] {
+        min-width : calc(33.33% - 8px) !important;
+        flex      : 1 1 calc(33.33% - 8px) !important;
+    }
+    .pak-kpi-value {
+        font-size : clamp(13px, 1.5vw, 22px) !important;
+    }
+    .pak-kpi-title {
+        font-size : clamp(8px, 0.8vw, 11px) !important;
     }
 
     /* Invoice subnav — slightly smaller on tablet */
@@ -490,9 +588,25 @@ div[data-testid="stMetricValue"] {
    DESKTOP  (1200px – 1919px) — original / reference sizes
    ═══════════════════════════════════════════════════════════════ */
 @media (min-width: 1200px) and (max-width: 1919px) {
-    /* Original values — no overrides needed here; root vars handle it */
     div[data-testid="stMetricValue"] {
         font-size : clamp(18px, 1.4vw, 28px) !important;
+    }
+
+    /* On smaller desktop monitors, buttons may wrap — allow graceful wrap */
+    div.stButton > button,
+    div.stDownloadButton > button {
+        white-space   : normal !important;
+        word-break    : break-word !important;
+        line-height   : 1.3 !important;
+        min-height    : 36px !important;
+    }
+
+    /* KPI value clips on narrow columns — let it shrink */
+    .pak-kpi-value {
+        font-size : clamp(14px, 1.5vw, 28px) !important;
+    }
+    .pak-kpi-title {
+        font-size : clamp(9px, 0.7vw, 12px) !important;
     }
 }
 
