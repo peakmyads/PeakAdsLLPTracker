@@ -4465,8 +4465,10 @@ if "Costs Centre" in tabs:
                     _f = _cd.get("field", "") or _cd.get("headerName", "")
                     if _f in ("Particulars", "Description", "Category"):
                         _cd["minWidth"] = 160
+                        _cd["pinned"]   = "left"
                     elif _f == "Currency":
                         _cd["minWidth"] = 70
+                        _cd["pinned"]   = "left"
                     elif _f == "Annual/FY Total":
                         _cd["minWidth"] = 120
                     else:
@@ -5336,8 +5338,10 @@ if "P&L" in tabs:
                         _f = _cd.get("field", "") or _cd.get("headerName", "")
                         if _f in ("Particulars", "Description", "Category"):
                             _cd["minWidth"] = 160
+                            _cd["pinned"]   = "left"
                         elif _f == "Currency":
                             _cd["minWidth"] = 70
+                            _cd["pinned"]   = "left"
                         elif _f == "Annual/FY Total":
                             _cd["minWidth"] = 120
                         else:
