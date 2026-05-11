@@ -4414,7 +4414,9 @@ if "Costs Centre" in tabs:
 
                 gb = GridOptionsBuilder.from_dataframe(df_table)
 
-                gb.configure_column("Group", rowGroup=True, hide=True)
+                gb.configure_column("Group",        rowGroup=True, hide=True)
+                gb.configure_column("Particulars",  pinned="left", minWidth=160)
+                gb.configure_column("Currency",     pinned="left", minWidth=70)
 
                 currency_formatter = JsCode("""
                 function(params){
@@ -4447,51 +4449,27 @@ if "Costs Centre" in tabs:
                 gridOptions["stopEditingWhenCellsLoseFocus"] = True
                 gridOptions["groupDefaultExpanded"] = 0
                 gridOptions["suppressMovableColumns"] = True
-                # All screens: auto-size columns to content, horizontal scroll if needed
-                _auto_size_js = JsCode("""
+                _cc_js = JsCode("""
                 function(params){
-                    // Step 1: enforce Particulars→Currency order and pin both left
-                    try {
-                        var stateArr = [
-                            {colId: 'Particulars', pinned: 'left', hide: false},
-                            {colId: 'Currency', pinned: 'left', hide: false}
-                        ];
-                        if(params.api.applyColumnState){
-                            params.api.applyColumnState({state: stateArr, applyOrder: true});
-                        }
-                    } catch(e) {}
-                    // Step 2: auto-size all columns to content after formatters render
                     setTimeout(function(){
                         try {
                             if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
                             else if(params.api)  params.api.autoSizeAllColumns(false);
                         } catch(e) {}
-                    }, 350);
+                    }, 400);
                 }
                 """)
-                gridOptions["onGridReady"]         = _auto_size_js
-                gridOptions["onFirstDataRendered"] = _auto_size_js
+                gridOptions["onGridReady"]         = _cc_js
+                gridOptions["onFirstDataRendered"] = _cc_js
                 gridOptions["suppressHorizontalScroll"] = False
                 for _cd in gridOptions.get("columnDefs", []):
                     _cd.pop("flex", None)
                     _cd.pop("width", None)
-                    _f = _cd.get("field", "") or _cd.get("headerName", "")
-                    if _f in ("Particulars", "Description", "Category"):
-                        _cd["minWidth"] = 160
-                        _cd["pinned"]   = "left"
-                    elif _f == "Currency":
-                        _cd["minWidth"] = 70
-                        _cd["pinned"]   = "left"
-                    elif _f == "Annual/FY Total":
-                        _cd["minWidth"] = 120
-                    else:
-                        _cd["minWidth"] = 95
-                # Ensure column order: Particulars → Currency → months
-                _all_cd = gridOptions.get("columnDefs", [])
-                _part   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) in ("Particulars","Description","Category")]
-                _curr   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) == "Currency"]
-                _rest   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) not in ("Particulars","Description","Category","Currency")]
-                gridOptions["columnDefs"] = _part + _curr + _rest
+                    _f = _cd.get("field","") or _cd.get("headerName","")
+                    if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
+                    elif _f == "Currency":        _cd["minWidth"]=70
+                    elif _f == "Annual/FY Total": _cd["minWidth"]=120
+                    else:                         _cd["minWidth"]=95
 
                 gridOptions["getRowStyle"] = JsCode("""
                 function(params){
@@ -5301,7 +5279,9 @@ if "P&L" in tabs:
                 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
                 gb_pnl = GridOptionsBuilder.from_dataframe(df_pnl)
-                gb_pnl.configure_column("Group", rowGroup=True, hide=True)
+                gb_pnl.configure_column("Group",       rowGroup=True, hide=True)
+                gb_pnl.configure_column("Particulars", pinned="left", minWidth=160)
+                gb_pnl.configure_column("Currency",    pinned="left", minWidth=70)
 
                 # Hide the auto-generated unique index column if present
                 gb_pnl.configure_column("__index_level_0__", hide=True)
@@ -5331,59 +5311,35 @@ if "P&L" in tabs:
                 pnl_grid_opts["stopEditingWhenCellsLoseFocus"] = True
                 pnl_grid_opts["groupDefaultExpanded"] = 0
                 pnl_grid_opts["suppressMovableColumns"] = True
-                # Explicitly suppress any auto-generated columns
+                # Suppress auto-generated columns
                 if "columnDefs" in pnl_grid_opts:
                     pnl_grid_opts["columnDefs"] = [
                         c for c in pnl_grid_opts["columnDefs"]
-                        if not str(c.get("field", "")).startswith("::")
+                        if not str(c.get("field","")).startswith("::")
                     ]
-
-                # All screens: auto-size columns to content, horizontal scroll if needed
-                _auto_size_js = JsCode("""
+                _pnl_js = JsCode("""
                 function(params){
-                    // Step 1: enforce Particulars→Currency order and pin both left
-                    try {
-                        var stateArr = [
-                            {colId: 'Particulars', pinned: 'left', hide: false},
-                            {colId: 'Currency', pinned: 'left', hide: false}
-                        ];
-                        if(params.api.applyColumnState){
-                            params.api.applyColumnState({state: stateArr, applyOrder: true});
-                        }
-                    } catch(e) {}
-                    // Step 2: auto-size all columns to content after formatters render
                     setTimeout(function(){
                         try {
                             if(params.columnApi) params.columnApi.autoSizeAllColumns(false);
                             else if(params.api)  params.api.autoSizeAllColumns(false);
                         } catch(e) {}
-                    }, 350);
+                    }, 400);
                 }
                 """)
-                pnl_grid_opts["onGridReady"]         = _auto_size_js
-                pnl_grid_opts["onFirstDataRendered"] = _auto_size_js
+                pnl_grid_opts["onGridReady"]         = _pnl_js
+                pnl_grid_opts["onFirstDataRendered"] = _pnl_js
                 pnl_grid_opts["suppressHorizontalScroll"] = False
                 if "columnDefs" in pnl_grid_opts:
                     for _cd in pnl_grid_opts["columnDefs"]:
                         _cd.pop("flex", None)
                         _cd.pop("width", None)
-                        _f = _cd.get("field", "") or _cd.get("headerName", "")
-                        if _f in ("Particulars", "Description", "Category"):
-                            _cd["minWidth"] = 160
-                            _cd["pinned"]   = "left"
-                        elif _f == "Currency":
-                            _cd["minWidth"] = 70
-                            _cd["pinned"]   = "left"
-                        elif _f == "Annual/FY Total":
-                            _cd["minWidth"] = 120
-                        else:
-                            _cd["minWidth"] = 95
-                    # Ensure column order: Particulars → Currency → months
-                    _all_cd = pnl_grid_opts["columnDefs"]
-                    _part   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) in ("Particulars","Description","Category")]
-                    _curr   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) == "Currency"]
-                    _rest   = [c for c in _all_cd if (c.get("field","") or c.get("headerName","")) not in ("Particulars","Description","Category","Currency")]
-                    pnl_grid_opts["columnDefs"] = _part + _curr + _rest
+                        _f = _cd.get("field","") or _cd.get("headerName","")
+                        if _f in ("Particulars","Description","Category"): _cd["minWidth"]=160
+                        elif _f == "Currency":        _cd["minWidth"]=70
+                        elif _f == "Annual/FY Total": _cd["minWidth"]=120
+                        else:                         _cd["minWidth"]=95
+
                 pnl_grid_opts["getRowStyle"] = JsCode("""
                 function(params){
                     if(!params.data) return;
