@@ -285,26 +285,37 @@ def login_screen():
         border-color:#0076CE!important;box-shadow:0 0 0 3px rgba(0,118,206,.12)!important;
         background:#ffffff!important;}}
 
-    /* Text / password input — single clean border via BaseWeb container */
-    [data-testid="stMain"] .stTextInput>div>div{{
+    /* ── Password / text input: single clean border ──────────────────────────
+       Root cause of double-border: Streamlit injects its own theme primaryColor
+       onto [data-baseweb="input"] on focus.  We must target that attribute
+       directly (higher specificity than >div>div) and zero every child as well.
+    ── */
+    [data-testid="stMain"] [data-baseweb="input"]{{
         border-radius:10px!important;border:1.5px solid #e5e7eb!important;
         background:#f9fafb!important;min-height:48px!important;
-        box-shadow:none!important;
+        box-shadow:none!important;outline:none!important;
         transition:border-color .2s,box-shadow .2s!important;}}
-    [data-testid="stMain"] .stTextInput>div>div:focus-within{{
-        border-color:#0076CE!important;box-shadow:0 0 0 3px rgba(0,118,206,.12)!important;
+    [data-testid="stMain"] [data-baseweb="input"]:focus-within{{
+        border-color:#0076CE!important;
+        box-shadow:0 0 0 3px rgba(0,118,206,.12)!important;
         background:#ffffff!important;}}
-    /* Strip every inner-div border so BaseWeb doesn't render a second ring */
-    [data-testid="stMain"] .stTextInput>div>div>div{{
+    /* Strip border/outline/shadow from every child inside the BaseWeb container */
+    [data-testid="stMain"] [data-baseweb="input"]>div,
+    [data-testid="stMain"] [data-baseweb="input"]>div>div{{
         border:none!important;outline:none!important;
         box-shadow:none!important;background:transparent!important;}}
-    [data-testid="stMain"] .stTextInput input{{
+    [data-testid="stMain"] [data-baseweb="input"] input,
+    [data-testid="stMain"] [data-baseweb="input"] input:focus,
+    [data-testid="stMain"] [data-baseweb="input"] input:focus-visible{{
         font-size:14px!important;color:#111827!important;
         border:none!important;outline:none!important;
+        box-shadow:none!important;background:transparent!important;
+        -webkit-box-shadow:none!important;}}
+    [data-testid="stMain"] [data-baseweb="input"] button,
+    [data-testid="stMain"] [data-baseweb="input"] button:focus{{
+        border:none!important;outline:none!important;
         box-shadow:none!important;background:transparent!important;}}
-    [data-testid="stMain"] .stTextInput input:focus{{
-        border:none!important;outline:none!important;box-shadow:none!important;}}
-    [data-testid="stMain"] .stTextInput input::placeholder{{color:#c4c9d4!important;}}
+    [data-testid="stMain"] [data-baseweb="input"] input::placeholder{{color:#c4c9d4!important;}}
 
     [data-testid="stMain"] .stSelectbox,[data-testid="stMain"] .stTextInput{{padding:0 52px!important;}}
     [data-testid="stMain"] .stButton{{padding:0 52px!important;}}
