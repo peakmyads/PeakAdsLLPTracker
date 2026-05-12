@@ -283,6 +283,38 @@ def render_navbar() -> None:
         "opacity:0;transform:translateX(-6px);"
         "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
         "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
+
+        # ── pak-mob-open: mirrors :hover expanded state for touch ──────────
+        "#pak-sb.pak-mob-open .psb-lbl{opacity:1!important;transform:translateX(0)!important;pointer-events:all!important;}"
+        "#pak-sb.pak-mob-open .psb-icon{opacity:0!important;width:0!important;font-size:0!important;overflow:hidden!important;}"
+        "#pak-sb.pak-mob-open .psb-brand{opacity:1!important;max-height:24px!important;}"
+        "#pak-sb.pak-mob-open .psb-uname{opacity:1!important;transform:translateX(0)!important;}"
+        "#pak-sb.pak-mob-open .psb-ltxt{opacity:1!important;transform:translateX(0)!important;}"
+
+        # ── Mobile media query ───────────────────────────────────────────────
+        "@media(max-width:767px){"
+        "#pak-mob-toggle{"
+        "position:fixed;top:10px;left:10px;z-index:2147483647;"
+        "width:40px;height:40px;"
+        "background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);"
+        "border-radius:9px;border:none;cursor:pointer;"
+        "font-size:20px;color:#fff;"
+        "display:flex;align-items:center;justify-content:center;"
+        "box-shadow:0 3px 14px rgba(0,118,206,0.50);"
+        "transition:transform .14s,background .18s;"
+        "-webkit-tap-highlight-color:transparent;"
+        "touch-action:manipulation;}"
+        "#pak-mob-toggle:active{transform:scale(0.91);}"
+        "#pak-mob-backdrop{"
+        "position:fixed;inset:0;z-index:2147483646;"
+        "background:rgba(0,0,0,0.52);display:none;"
+        "-webkit-tap-highlight-color:transparent;}"
+        "#pak-mob-backdrop.pak-mob-open{display:block!important;}"
+        "#pak-sb{width:0!important;transition:width .28s cubic-bezier(.4,0,.2,1)!important;}"
+        "#pak-sb.pak-mob-open{width:190px!important;z-index:2147483647!important;}"
+        "[data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
+        "body:has(#pak-sb:hover) [data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
+        "}"
     )
 
     # ── 4. IFRAME HTML + JS ──────────────────────────────────────────────────
@@ -305,9 +337,28 @@ var gaps=[0,100,300,700,1500,3000], gi=0;
   setTimeout(function(){ gi++; boot(); attempt(); }, gaps[gi]);
 })();
 
+/* ── cancel stale timers to prevent pile-up across reruns ── */
+function cancelPending(){
+  if(window._pakNavT){ window._pakNavT.forEach(function(t){ clearTimeout(t); }); }
+  window._pakNavT=[];
+}
+function laterDo(fn,ms){
+  if(!window._pakNavT) window._pakNavT=[];
+  window._pakNavT.push(setTimeout(fn,ms));
+}
+
+/* ── close mobile nav (safe to call anytime) ── */
+function closeMobileNav(P){
+  var sb=P.getElementById('pak-sb');
+  var bd=P.getElementById('pak-mob-backdrop');
+  if(sb) sb.classList.remove('pak-mob-open');
+  if(bd) bd.classList.remove('pak-mob-open');
+}
+
 function boot(){
   var P=window.parent.document;
   if(!P||!P.body) return;
+  cancelPending();
   /* Remove login-page left panel if it survived from before login */
   ['pak-login-left','pak-login-left-css'].forEach(function(id){
     var e=P.getElementById(id); if(e) e.remove();
@@ -315,9 +366,35 @@ function boot(){
   if(P.getElementById('pak-sb')){ rebind(P); return; }
   injectCSS(P);
   injectHTML(P);
+  injectMobileUI(P);
   hideTabBar(P);
-  setTimeout(function(){ bindAll(P); hideTabBar(P); }, 300);
-  setTimeout(function(){ hideTabBar(P); }, 1200);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
+  laterDo(function(){ hideTabBar(P); }, 1200);
+}
+
+/* ── inject hamburger button + backdrop for mobile ── */
+function injectMobileUI(P){
+  if(P.getElementById('pak-mob-toggle')) return;
+
+  var bd=P.createElement('div');
+  bd.id='pak-mob-backdrop';
+  bd.addEventListener('click',function(){
+    closeMobileNav(P);
+  });
+  P.body.insertBefore(bd, P.body.firstChild);
+
+  var btn=P.createElement('button');
+  btn.id='pak-mob-toggle';
+  btn.innerHTML='&#9776;';
+  btn.setAttribute('aria-label','Open navigation');
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var sb=P.getElementById('pak-sb');
+    if(!sb) return;
+    var open=sb.classList.toggle('pak-mob-open');
+    bd.classList.toggle('pak-mob-open', open);
+  });
+  P.body.insertBefore(btn, P.body.firstChild);
 }
 
 /* ── inject CSS into parent <head> ── */
@@ -427,13 +504,15 @@ function bindAll(P){
   });
   P.querySelectorAll('.psb-item').forEach(function(el){
     el.addEventListener('click',function(){
+      /* close mobile nav FIRST before btn.click() triggers rerun */
+      closeMobileNav(P);
       var btn=findTab(P,this.dataset.label);
       if(btn){
-        btn.click();
         P.querySelectorAll('.psb-item').forEach(function(x){
           x.classList.remove('psb-active');
         });
         el.classList.add('psb-active');
+        setTimeout(function(){ btn.click(); }, 60);
       }
     });
   });
@@ -456,9 +535,9 @@ function bindAll(P){
 }
 
 function rebind(P){
-  [200,600,1400].forEach(function(d){
-    setTimeout(function(){ bindAll(P); hideTabBar(P); }, d);
-  });
+  cancelPending();
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 700);
 }
 
 })();
