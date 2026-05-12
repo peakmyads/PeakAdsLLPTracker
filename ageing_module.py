@@ -75,8 +75,8 @@ def _kpi_row(data):
     cols = st.columns(len(data))
     for col, (label, value, color) in zip(cols, data):
         with col:
-            if isinstance(value, float) and value == int(value) and "Partners" in label or "Vendors" in label:
-                display = str(int(value))
+            if "Partners" in label or "Vendors" in label:
+                display = str(int(value)) if isinstance(value, (int, float)) else str(value)
             elif isinstance(value, (int, float)):
                 display = f"${value:,.2f}"
             else:
