@@ -403,6 +403,18 @@ function injectMobileUI(P){
     bd.classList.toggle('pak-mob-open', open);
   });
   P.body.insertBefore(btn, P.body.firstChild);
+
+  /* Watch #pak-sb for pak-mob-open being added from ANY source
+     (handles both the iframe toggle AND the direct #_pak_ham_btn onclick) */
+  var sbEl = P.getElementById('pak-sb');
+  if(sbEl){
+    new MutationObserver(function(){
+      if(sbEl.classList.contains('pak-mob-open')){
+        injectInvSubs(P);
+        setTimeout(function(){ syncInvSubs(P); }, 80);
+      }
+    }).observe(sbEl, {attributes:true, attributeFilter:['class']});
+  }
 }
 
 /* ── mobile tap-to-open for dashboard/invoice subnavs ── */
@@ -514,7 +526,7 @@ var INV_SUB_DEFS = [
 
 /* ── inject invoice subtab list inside pak-sb (mobile only) ── */
 function injectInvSubs(P){
-  if(P.innerWidth > 767) return;
+  if(window.parent.innerWidth > 767) return;
   if(P.getElementById('pak-inv-subs')) return;
   var invItem = null;
   P.querySelectorAll('.psb-item').forEach(function(el){
@@ -546,7 +558,7 @@ function injectInvSubs(P){
 
 /* ── show/hide subs + sync active sub-tab ── */
 function syncInvSubs(P){
-  if(P.innerWidth > 767) return;
+  if(window.parent.innerWidth > 767) return;
   var subs = P.getElementById('pak-inv-subs');
   if(!subs) return;
   var invItem = null;
