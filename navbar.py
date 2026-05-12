@@ -314,6 +314,12 @@ def render_navbar() -> None:
         "#pak-sb.pak-mob-open{width:190px!important;z-index:2147483647!important;}"
         "[data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
         "body:has(#pak-sb:hover) [data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
+        "#pak-inv-subs{display:none;flex-direction:column;gap:1px;margin:2px 0 4px 4px;padding:3px 0;border-left:2px solid rgba(0,118,206,0.30);}"
+        "#pak-inv-subs.pak-inv-open{display:flex!important;}"
+        ".pak-sub-item{display:flex;align-items:center;gap:7px;padding:8px 8px 8px 14px;color:rgba(180,210,255,0.80);font-size:11px;font-weight:500;cursor:pointer;border-radius:0 8px 8px 0;transition:background .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}"
+        ".pak-sub-item.pak-sub-active{background:rgba(0,118,206,0.35)!important;color:#fff!important;}"
+        ".pak-sub-icon{font-size:13px;flex-shrink:0;}"
+        ".pak-sub-lbl{font-size:11px;}"
         "}"
     )
 
@@ -367,8 +373,10 @@ function boot(){
   injectCSS(P);
   injectHTML(P);
   injectMobileUI(P);
+  injectInvSubs(P);
   hideTabBar(P);
-  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 300);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
+  laterDo(function(){ syncInvSubs(P); }, 500);
   laterDo(function(){ hideTabBar(P); }, 1200);
 }
 
@@ -496,14 +504,87 @@ function findTab(P,lbl){
   return null;
 }
 
+var INV_SUB_DEFS = [
+  ['📄 Create Invoice',  '📄', 'Create Invoice'],
+  ['📋 Invoice History', '📋', 'Invoice History'],
+  ['🔔 Send Reminder',   '🔔', 'Send Reminder'],
+  ['📊 DSP Statement',   '📊', 'DSP Statement'],
+  ['📑 GST Report',      '📑', 'GST Report']
+];
+
+/* ── inject invoice subtab list inside pak-sb (mobile only) ── */
+function injectInvSubs(P){
+  if(P.innerWidth > 767) return;
+  if(P.getElementById('pak-inv-subs')) return;
+  var invItem = null;
+  P.querySelectorAll('.psb-item').forEach(function(el){
+    if((el.dataset.label||'').indexOf('Invoice')!==-1) invItem=el;
+  });
+  if(!invItem) return;
+  var subs = P.createElement('div');
+  subs.id = 'pak-inv-subs';
+  INV_SUB_DEFS.forEach(function(def){
+    var item = P.createElement('div');
+    item.className = 'pak-sub-item';
+    item.dataset.subLabel = def[0];
+    item.innerHTML = '<span class="pak-sub-icon">'+def[1]+'</span><span class="pak-sub-lbl">'+def[2]+'</span>';
+    item.addEventListener('click', function(e){
+      e.stopPropagation();
+      var found = false;
+      P.querySelectorAll('button[data-testid="stTab"]').forEach(function(t){
+        if(!found && (t.textContent||'').trim()===def[0].trim()){ t.click(); found=true; }
+      });
+      P.querySelectorAll('.pak-sub-item').forEach(function(s){
+        s.classList.toggle('pak-sub-active', s.dataset.subLabel===def[0]);
+      });
+      closeMobileNav(P);
+    });
+    subs.appendChild(item);
+  });
+  invItem.parentNode.insertBefore(subs, invItem.nextSibling);
+}
+
+/* ── show/hide subs + sync active sub-tab ── */
+function syncInvSubs(P){
+  if(P.innerWidth > 767) return;
+  var subs = P.getElementById('pak-inv-subs');
+  if(!subs) return;
+  var invItem = null;
+  P.querySelectorAll('.psb-item').forEach(function(el){
+    if((el.dataset.label||'').indexOf('Invoice')!==-1) invItem=el;
+  });
+  var isInvActive = invItem && invItem.classList.contains('psb-active');
+  subs.classList.toggle('pak-inv-open', !!isInvActive);
+  if(isInvActive){
+    var subLabels = INV_SUB_DEFS.map(function(d){ return d[0]; });
+    var activeSubLbl = '';
+    P.querySelectorAll('button[data-testid="stTab"]').forEach(function(t){
+      if(t.getAttribute('aria-selected')==='true' &&
+         subLabels.indexOf((t.textContent||'').trim())!==-1){
+        activeSubLbl = (t.textContent||'').trim();
+      }
+    });
+    P.querySelectorAll('.pak-sub-item').forEach(function(s){
+      s.classList.toggle('pak-sub-active', s.dataset.subLabel===activeSubLbl);
+    });
+  }
+}
+
 /* ── sync active highlight ── */
 function syncActive(P){
-  var sel=P.querySelector('button[data-testid="stTab"][aria-selected="true"]');
-  if(!sel) return;
-  var lbl=sel.innerText.trim();
+  /* use only the first stTabBar (main tabs) — avoids picking up inner Invoice tabs */
+  var mainBar = P.querySelector('[data-testid="stTabBar"]');
+  var btns = mainBar ? mainBar.querySelectorAll('button[data-testid="stTab"]') : [];
+  var lbl = '';
+  for(var i=0; i<btns.length; i++){
+    if(btns[i].getAttribute('aria-selected')==='true'){
+      lbl = (btns[i].textContent||'').trim(); break;
+    }
+  }
   P.querySelectorAll('.psb-item').forEach(function(el){
     el.classList.toggle('psb-active', el.dataset.label===lbl);
   });
+  syncInvSubs(P);
 }
 
 /* ── logout: find the hidden Streamlit "Logout" button in st.sidebar ── */
@@ -572,8 +653,8 @@ function bindAll(P){
 
 function rebind(P){
   cancelPending();
-  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 200);
-  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 700);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
+  laterDo(function(){ injectInvSubs(P); syncInvSubs(P); }, 400);
 }
 
 })();
