@@ -221,61 +221,6 @@ def detect_screen() -> None:
 
     components.html(bridge_js, height=0, scrolling=False)
 
-    # ── Mobile-only Plotly fix: disable drag/scroll zoom, keep hover ────────
-    # Runs inside a zero-height iframe; accesses parent window for Plotly API
-    plotly_mobile_js = """<!DOCTYPE html>
-<html><head><meta charset='utf-8'></head>
-<body style='margin:0;padding:0;background:transparent;'>
-<script>
-(function(){
-  var P = window.parent;
-  // Only apply on mobile-width screens
-  if (!P || P.innerWidth > 767) return;
-
-  function fixChart(gd) {
-    try {
-      if (gd._fullLayout !== undefined && P.Plotly) {
-        // dragmode:false keeps hover tooltips but disables pan/zoom/select
-        P.Plotly.relayout(gd, { dragmode: false });
-        // Also override the internal scroll handler to prevent wheel zoom
-        if (gd._fullLayout._scrollZoom) {
-          gd._fullLayout._scrollZoom = {};
-        }
-      }
-    } catch(e) {}
-  }
-
-  function scanAndFix() {
-    P.document.querySelectorAll('.js-plotly-plot').forEach(fixChart);
-  }
-
-  // Watch for charts being added dynamically (Streamlit rerenders)
-  var obs = new P.MutationObserver(function(mutations) {
-    mutations.forEach(function(m) {
-      m.addedNodes.forEach(function(node) {
-        if (node.nodeType !== 1) return;
-        if (node.classList && node.classList.contains('js-plotly-plot')) {
-          fixChart(node);
-        }
-        node.querySelectorAll && node.querySelectorAll('.js-plotly-plot')
-          .forEach(fixChart);
-      });
-    });
-  });
-
-  try {
-    obs.observe(P.document.body, { childList: true, subtree: true });
-  } catch(e) {}
-
-  // Fix any charts already on the page, and retry a few times for late renders
-  [0, 300, 800, 1500].forEach(function(d) {
-    setTimeout(scanAndFix, d);
-  });
-})();
-</script>
-</body></html>"""
-    components.html(plotly_mobile_js, height=0, scrolling=False)
-
     # First run: query params haven't been set yet — force a rerun
     sw_ss = st.session_state.get("_pak_screen_w", 0)
     if sw_ss == 0 and not st.session_state.get("_pak_detect_done"):
@@ -422,58 +367,10 @@ div[data-testid="stMetricValue"] {
     font-size : clamp(14px, 1.4vw, 28px) !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   KPI CARDS — uniform height, responsive font
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Force all KPI columns in a row to stretch to equal height */
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
-    align-items: stretch !important;
+/* KPI container cards */
+.kpi-container {
+    padding : var(--pak-card-pad) !important;
 }
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-    > [data-testid="stVerticalBlockBorderWrapper"] {
-    display       : flex !important;
-    flex-direction: column !important;
-}
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-    > [data-testid="stVerticalBlockBorderWrapper"]
-    > div {
-    flex: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-.pak-kpi-card {
-    padding       : clamp(10px, 1.2vw, 20px) clamp(10px, 1.4vw, 20px);
-    border-radius : 14px;
-    box-shadow    : 0 6px 20px rgba(0,0,0,0.22);
-    margin-bottom : 8px;
-    height        : 100%;
-    min-height    : 88px;
-    display       : flex;
-    flex-direction: column;
-    justify-content: center;
-    box-sizing    : border-box;
-}
-.pak-kpi-title {
-    font-size     : clamp(9px, 0.75vw, 12px);
-    font-weight   : 700;
-    color         : #FFEF00;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-    line-height   : 1.3;
-}
-.pak-kpi-value {
-    font-size     : clamp(15px, 1.6vw, 28px);
-    font-weight   : 900;
-    color         : #fff;
-    margin-top    : 4px;
-    letter-spacing: -0.5px;
-    line-height   : 1.15;
-    word-break    : break-all;
-}
-
-
 
 /* AgGrid cell text — scales with viewport */
 .ag-cell, .ag-header-cell-text {
@@ -502,57 +399,36 @@ div[data-testid="stMetricValue"] {
     div.stDownloadButton > button {
         min-height    : 44px !important;
         padding       : 10px 12px !important;
-        font-size     : 11px !important;
+        font-size     : 12px !important;
         border-radius : 8px  !important;
         width         : 100% !important;
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
     }
 
     /* Tabs — smaller, scrollable */
     div[data-testid="stTabs"] button[role="tab"] {
-        font-size : 10px !important;
-        padding   : 5px 7px !important;
+        font-size : 10.5px !important;
+        padding   : 5px 8px !important;
         min-width : 0 !important;
-        white-space: nowrap !important;
     }
     div[data-baseweb="tab-list"] {
         gap         : 2px !important;
         padding     : 4px 4px !important;
         overflow-x  : auto !important;
         flex-wrap   : nowrap !important;
-        -webkit-overflow-scrolling: touch !important;
     }
 
-    /* KPI cards — 2 per row on mobile */
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
-        flex-wrap : wrap !important;
-    }
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-        > [data-testid="stVerticalBlockBorderWrapper"] {
-        width   : calc(50% - 4px) !important;
-        flex    : none !important;
-        min-width: 0 !important;
-    }
-    .pak-kpi-card {
-        min-height : 70px !important;
-    }
-    .pak-kpi-value {
-        font-size  : clamp(14px, 4.5vw, 20px) !important;
-    }
-    .pak-kpi-title {
-        font-size  : 9px !important;
-    }
-
-    /* Stack ALL other columns vertically */
-    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card)) {
+    /* Stack columns vertically */
+    [data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
     }
-    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card))
-        > [data-testid="stVerticalBlockBorderWrapper"] {
+    [data-testid="stHorizontalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
         width   : 100% !important;
         flex    : none !important;
+    }
+
+    /* Hide invoice subnav on mobile — too small to use */
+    #inv-sidenav {
+        display: none !important;
     }
 
     /* Metric value — smaller on phones */
@@ -567,98 +443,9 @@ div[data-testid="stMetricValue"] {
         padding-top  : 4px  !important;
     }
 
-    /* ── Navbar z-index: always on top of everything on mobile ── */
-    /* Max possible z-index so charts, cards, modals can't stack above */
-    #pak-mob-toggle {
-        z-index: 2147483647 !important;
-    }
-    #pak-sb,
-    #pak-sb.pak-mob-open {
-        z-index: 2147483647 !important;
-    }
-    #pak-mob-backdrop,
-    #pak-mob-backdrop.pak-mob-open {
-        z-index: 2147483646 !important;
-    }
-
-    /* ── Hide right-side subnavs on mobile — nav is in the left hamburger sidebar ── */
-    #dash-sidenav,
-    #inv-sidenav {
-        display: none !important;
-    }
-
-
-    /* ── KPI cards: no stacking context that traps fixed elements ── */
-    .pak-kpi-card {
-        isolation : auto !important;
-    }
+    /* AgGrid — allow horizontal scroll on mobile */
     .ag-root-wrapper {
         overflow-x : auto !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    /* ── Plotly charts on mobile: allow page scroll, block chart zoom/pan ── */
-    /* touch-action:pan-y lets the browser handle vertical scroll (page scroll)
-       and blocks pinch-zoom / horizontal drag being captured by Plotly */
-    .js-plotly-plot,
-    .js-plotly-plot .plotly,
-    .js-plotly-plot svg,
-    .js-plotly-plot .gl-container,
-    [data-testid="stPlotlyChart"] {
-        touch-action      : pan-y !important;
-        overscroll-behavior: contain !important;
-    }
-
-    /* ── Wide multi-column tables (P&L, Costs Centre) — horizontal scroll ── */
-    /* Wrap the stMarkdown/block-container so the TABLE can be wider than viewport */
-    .block-container [data-testid="stMarkdownContainer"],
-    [data-testid="stMarkdownContainer"] {
-        overflow-x : auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        max-width  : calc(100vw - 12px) !important;
-    }
-    /* HTML tables inside markdown: don't squish, let them scroll */
-    .stMarkdown table,
-    [data-testid="stMarkdownContainer"] table {
-        width      : max-content !important;
-        min-width  : 100% !important;
-        font-size  : 10px !important;
-    }
-    .stMarkdown table th,
-    .stMarkdown table td,
-    [data-testid="stMarkdownContainer"] table th,
-    [data-testid="stMarkdownContainer"] table td {
-        min-width  : 52px !important;
-        max-width  : 110px !important;
-        white-space: nowrap !important;
-        padding    : 3px 5px !important;
-        font-size  : 10px !important;
-        overflow   : hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    /* AgGrid: enforce minimum column width so text isn't squished to 2 chars */
-    .ag-header-cell {
-        min-width  : 65px !important;
-    }
-    .ag-cell {
-        min-width  : 55px !important;
-        font-size  : 10.5px !important;
-    }
-    /* AgGrid iframe wrapper — allow horizontal scroll */
-    [data-testid="stCustomComponentV1"],
-    iframe[title*="st_aggrid"],
-    iframe[title*="AgGrid"] {
-        overflow-x : auto !important;
-        width      : 100% !important;
-        max-width  : calc(100vw - 12px) !important;
-    }
-
-    /* Selectbox & multiselect full width */
-    div[data-testid="stSelectbox"],
-    div[data-testid="stMultiSelect"],
-    div[data-testid="stDateInput"],
-    div[data-testid="stTextInput"] {
-        width: 100% !important;
     }
 }
 
@@ -670,16 +457,13 @@ div[data-testid="stMetricValue"] {
     div.stButton > button,
     div.stDownloadButton > button {
         min-height    : 38px !important;
-        font-size     : 11px !important;
-        padding       : 6px 10px !important;
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
+        font-size     : 11.5px !important;
+        padding       : 6px 11px !important;
     }
 
     div[data-testid="stTabs"] button[role="tab"] {
         font-size : 11px !important;
-        padding   : 5px 9px !important;
+        padding   : 5px 10px !important;
     }
 
     div[data-testid="stMetricValue"] {
@@ -689,19 +473,6 @@ div[data-testid="stMetricValue"] {
     .block-container {
         padding-left : 10px !important;
         padding-right: 10px !important;
-    }
-
-    /* KPI cards — 3 per row on tablet (6-col row wraps to 2 rows of 3) */
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-        > [data-testid="stVerticalBlockBorderWrapper"] {
-        min-width : calc(33.33% - 8px) !important;
-        flex      : 1 1 calc(33.33% - 8px) !important;
-    }
-    .pak-kpi-value {
-        font-size : clamp(13px, 1.5vw, 22px) !important;
-    }
-    .pak-kpi-title {
-        font-size : clamp(8px, 0.8vw, 11px) !important;
     }
 
     /* Invoice subnav — slightly smaller on tablet */
@@ -719,25 +490,9 @@ div[data-testid="stMetricValue"] {
    DESKTOP  (1200px – 1919px) — original / reference sizes
    ═══════════════════════════════════════════════════════════════ */
 @media (min-width: 1200px) and (max-width: 1919px) {
+    /* Original values — no overrides needed here; root vars handle it */
     div[data-testid="stMetricValue"] {
         font-size : clamp(18px, 1.4vw, 28px) !important;
-    }
-
-    /* On smaller desktop monitors, buttons may wrap — allow graceful wrap */
-    div.stButton > button,
-    div.stDownloadButton > button {
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
-        min-height    : 36px !important;
-    }
-
-    /* KPI value clips on narrow columns — let it shrink */
-    .pak-kpi-value {
-        font-size : clamp(14px, 1.5vw, 28px) !important;
-    }
-    .pak-kpi-title {
-        font-size : clamp(9px, 0.7vw, 12px) !important;
     }
 }
 
