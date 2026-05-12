@@ -555,11 +555,6 @@ div[data-testid="stMetricValue"] {
         flex    : none !important;
     }
 
-    /* Hide invoice subnav on mobile — too small to use */
-    #inv-sidenav {
-        display: none !important;
-    }
-
     /* Metric value — smaller on phones */
     div[data-testid="stMetricValue"] {
         font-size : 16px !important;
@@ -577,6 +572,7 @@ div[data-testid="stMetricValue"] {
     #pak-mob-toggle {
         z-index: 2147483647 !important;
     }
+    #pak-sb,
     #pak-sb.pak-mob-open {
         z-index: 2147483647 !important;
     }
@@ -585,27 +581,18 @@ div[data-testid="stMetricValue"] {
         z-index: 2147483646 !important;
     }
 
-    /* ── Dashboard & Invoice right-side subnavs: hide on mobile ──
-       The left hamburger navbar covers all tab navigation on mobile.
-       These fixed right-side hovers are unusable on touch and overlap content. */
-    #dash-sidenav,
-    #inv-sidenav {
-        display: none !important;
+    /* ── Dashboard & Invoice subnavs: high z-index so they show above charts ── */
+    #dash-sidenav {
+        z-index: 2147483645 !important;
     }
-
-    /* ── Plotly charts: don't create stacking context above navbar ── */
-    .js-plotly-plot {
-        isolation : auto !important;
-        z-index   : auto !important;
-        position  : relative !important;
+    #inv-sidenav {
+        z-index: 2147483645 !important;
     }
 
     /* ── KPI cards: no stacking context that traps fixed elements ── */
     .pak-kpi-card {
         isolation : auto !important;
     }
-
-    /* AgGrid — allow horizontal scroll on mobile */
     .ag-root-wrapper {
         overflow-x : auto !important;
         -webkit-overflow-scrolling: touch !important;
