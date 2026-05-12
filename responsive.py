@@ -1,856 +1,599 @@
 """
-responsive.py  —  PEAKADS LLP
-==============================
-Responsive design system for the Revenue Tracker Streamlit app.
+navbar.py  —  PEAKADS LLP
+Vertical hover-expand LEFT sidebar navbar for Streamlit.
 
-HOW IT WORKS
-────────────
-1. detect_screen()     → injects a zero-height JS iframe that reads window.innerWidth /
-                         window.innerHeight and writes them to st.session_state via a
-                         hidden Streamlit number_input widget. Triggers one st.rerun()
-                         on first load so Python immediately knows the real screen size.
+LAYOUT
+──────
+• Collapsed (46px) : overlays left edge, content = full 100vw - 46px, scrollbar visible
+• Hovered  (220px) : content shifts right, width = 100vw - 220px
+• Tab icons shown only when collapsed, hidden when expanded
+• Native horizontal tab bar fully hidden (CSS + JS double-kill)
 
-2. get_screen_config() → reads session state, returns a ScreenConfig dataclass with
-                         helpers like .grid_height(base), .font_scale, .is_mobile, etc.
-
-3. inject_responsive_css() → injects a complete CSS stylesheet with @media queries and
-                              clamp() rules covering all 4 breakpoints.
-
-USAGE (2 lines in app.py)
-──────────────────────────
-    from responsive import detect_screen, get_screen_config, inject_responsive_css
-    detect_screen()
-    inject_responsive_css()
-    sc = get_screen_config()
-
-    # Then use sc wherever you have a hardcoded height or size:
-    AgGrid(..., height=sc.grid_height(650))
-    AgGrid(..., height=sc.grid_height(700))
-
-BREAKPOINTS
+INTEGRATION
 ───────────
-    Mobile  : < 768 px   (phones, small tablets in portrait)
-    Tablet  : 768–1199   (tablets, 13" laptops, portrait iPads)
-    Desktop : 1200–1919  (14"–27" monitors, normal laptops)
-    Large   : ≥ 1920 px  (32"+ monitors, external 4K displays)
+  from navbar import render_navbar
+  render_navbar()          ← just before st.tabs(...)
+
+CHANGELOG
+─────────
+• Logout fix  : A real Streamlit "Logout" button is placed inside st.sidebar
+                (already hidden by CSS). JS finds it by text and clicks it,
+                which triggers the Python session-clear + st.rerun().
+• Logo        : peakads_logo.png loaded as base64 and shown in the header.
+                Collapsed → logo icon only.  Expanded → logo + "PEAKADS LLP" text.
 """
 
-from __future__ import annotations
+import base64
+import os
 import streamlit as st
 import streamlit.components.v1 as components
-from dataclasses import dataclass
+from login import get_allowed_tabs
 
+# ── Responsive navbar widths ──────────────────────────────────────────────────
+def _get_nav_widths() -> tuple[int, int]:
+    """Return (collapsed_w, expanded_w) based on detected screen width."""
+    sw = int(st.session_state.get("_pak_screen_w") or 0)
+    if sw == 0:
+        return 46, 220        # safe default before detection fires
+    if sw < 768:
+        return 0, 190         # mobile: hidden by default, slide-in on hover
+    if sw < 1200:
+        return 36, 190        # tablet
+    if sw < 1920:
+        return 46, 220        # desktop (original)
+    return 52, 240            # large (32"+)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Constants
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Logo loader ──────────────────────────────────────────────────────────────
 
-BP_MOBILE  = 768
-BP_TABLET  = 1200
-BP_DESKTOP = 1920
-
-# Grid height multipliers per breakpoint
-_GRID_SCALE = {
-    "mobile" : 0.55,   # phones — short tables so content fits without scroll wars
-    "tablet" : 0.78,   # 13" laptop / tablet
-    "desktop": 1.00,   # reference (your current hardcoded values)
-    "large"  : 1.18,   # 32"+ monitors — more rows visible
-}
-
-# Font scale multipliers (applied to base CSS values via CSS vars)
-_FONT_SCALE = {
-    "mobile" : 0.88,
-    "tablet" : 0.94,
-    "desktop": 1.00,
-    "large"  : 1.08,
-}
-
-# Navbar widths per breakpoint
-_NAVBAR = {
-    "mobile" : (0,   0),    # hidden collapsed; overlay toggle instead
-    "tablet" : (36, 190),   # slightly narrower
-    "desktop": (46, 220),   # original values
-    "large"  : (52, 240),   # slightly wider for 32"
-}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ScreenConfig dataclass
-# ─────────────────────────────────────────────────────────────────────────────
-
-@dataclass
-class ScreenConfig:
-    screen_w   : int
-    screen_h   : int
-    breakpoint : str      # "mobile" | "tablet" | "desktop" | "large"
-
-    # ── derived helpers ──────────────────────────────────────────────────────
-
-    @property
-    def is_mobile(self) -> bool:
-        return self.breakpoint == "mobile"
-
-    @property
-    def is_tablet(self) -> bool:
-        return self.breakpoint == "tablet"
-
-    @property
-    def is_desktop(self) -> bool:
-        return self.breakpoint == "desktop"
-
-    @property
-    def is_large(self) -> bool:
-        return self.breakpoint == "large"
-
-    @property
-    def font_scale(self) -> float:
-        return _FONT_SCALE[self.breakpoint]
-
-    @property
-    def navbar_cw(self) -> int:
-        """Collapsed navbar width (px)."""
-        return _NAVBAR[self.breakpoint][0]
-
-    @property
-    def navbar_ew(self) -> int:
-        """Expanded navbar width (px)."""
-        return _NAVBAR[self.breakpoint][1]
-
-    def grid_height(self, base: int = 650) -> int:
-        """
-        Scale a base AgGrid height to the current screen size.
-        Also caps at a sensible fraction of screen height so the table
-        never pushes content off-screen.
-        """
-        scale   = _GRID_SCALE[self.breakpoint]
-        scaled  = int(base * scale)
-        # never taller than 72% of viewport height
-        max_h   = int(self.screen_h * 0.72) if self.screen_h > 0 else scaled
-        return min(scaled, max_h)
-
-    @property
-    def block_padding(self) -> str:
-        """CSS padding for .block-container left/right."""
-        return {
-            "mobile" : "6px",
-            "tablet" : "10px",
-            "desktop": "15px",
-            "large"  : "22px",
-        }[self.breakpoint]
-
-    @property
-    def card_padding(self) -> str:
-        """Padding for .kpi-container cards."""
-        return {
-            "mobile" : "10px",
-            "tablet" : "16px",
-            "desktop": "25px",
-            "large"  : "32px",
-        }[self.breakpoint]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Screen detection (JS → session_state bridge)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Screen detection (JS → st.query_params bridge — ZERO visible widgets)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def detect_screen() -> None:
-    """
-    Call once near the top of app.py (after st.set_page_config).
-
-    Strategy: JS reads window.innerWidth / innerHeight from the parent
-    frame and writes them as URL query params (?_sw=1280&_sh=800) via
-    history.replaceState — invisible to the user, no browser history entry.
-    Python reads them from st.query_params on every run.
-
-    On the very first run (params not set yet) a st.rerun() is queued
-    so Python immediately knows real dimensions before rendering content.
-    No number_input, no visible widgets, no layout artifacts.
-    """
-
-    # Read current values from query params (set by JS on previous run)
+def _get_logo_b64() -> str:
+    """Return base64-encoded peakads_logo.png, or empty string if not found."""
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "peakads_logo.png")
     try:
-        sw_qp = int(st.query_params.get("_sw", 0))
-        sh_qp = int(st.query_params.get("_sh", 0))
+        with open(logo_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
     except Exception:
-        sw_qp, sh_qp = 0, 0
+        return ""
 
-    # Persist into session_state so the rest of the app can read them
-    if sw_qp > 0:
-        st.session_state["_pak_screen_w"] = sw_qp
-        st.session_state["_pak_screen_h"] = sh_qp
 
-    # JS bridge — reads viewport size and writes to URL query params
-    # Uses history.replaceState so no browser history entry is created
-    bridge_js = """
-<html><head><meta charset='utf-8'></head>
-<body style='margin:0;padding:0;overflow:hidden;'>
-<script>
-(function(){
-  try {
-    var P  = window.parent;
-    var w  = P.innerWidth  || P.document.documentElement.clientWidth  || 1280;
-    var h  = P.innerHeight || P.document.documentElement.clientHeight || 800;
-    var qs = P.location.search;
+# ── Tab maps ─────────────────────────────────────────────────────────────────
 
-    /* Parse existing params so we don't clobber unrelated ones */
-    var params = new URLSearchParams(qs);
-    var oldW   = params.get('_sw');
-    var oldH   = params.get('_sh');
+TAB_MAP = {
+    "Dashboard"       : "📊 Dashboard",
+    "Ageing"          : "📈 AR/AP Ageing",
+    "Master Data"     : "📁 Master Data",
+    "DSP (Customers)" : "🧑 DSP (Customers)",
+    "Invoice Manager" : "🧾 Invoice Manager",
+    "SSP (Vendors)"   : "📤 SSP (Vendors)",
+    "List of Partners": "🤝 List of Partners",
+    "Costs Centre"    : "💰 Costs Centre",
+    "P&L"             : "📉 P&L",
+    "Admin Control"   : "⚙️ Admin Control Panel",
+    "Edit Database"   : "🛠️ Edit Database",
+    "BC Report"       : "📋 BC Report",
+}
 
-    /* Only update + trigger rerun if values have changed */
-    if(String(oldW) !== String(w) || String(oldH) !== String(h)){
-      params.set('_sw', w);
-      params.set('_sh', h);
-      var newSearch = '?' + params.toString();
-      P.history.replaceState(null, '', newSearch);
+TAB_ICONS = {
+    "Dashboard"       : "📊",
+    "Ageing"          : "📈",
+    "Master Data"     : "📁",
+    "DSP (Customers)" : "🧑",
+    "Invoice Manager" : "🧾",
+    "SSP (Vendors)"   : "📤",
+    "List of Partners": "🤝",
+    "Costs Centre"    : "💰",
+    "P&L"             : "📉",
+    "Admin Control"   : "⚙️",
+    "Edit Database"   : "🛠️",
+    "BC Report"       : "📋",
+}
 
-      /* Trigger Streamlit rerun by dispatching a popstate-like event.
-         Streamlit listens to URL changes via its own router. */
-      setTimeout(function(){
-        P.dispatchEvent(new PopStateEvent('popstate', { state: null }));
-      }, 60);
-    }
-  } catch(e) { /* cross-origin guard */ }
-})();
-</script>
-</body></html>"""
 
-    components.html(bridge_js, height=0, scrolling=False)
+def render_navbar() -> None:
 
-    # ── Mobile-only Plotly fix: disable drag/scroll zoom, keep hover ────────
-    # Runs inside a zero-height iframe; accesses parent window for Plotly API
-    plotly_mobile_js = """<!DOCTYPE html>
+    # ── Dynamic widths based on screen size ──────────────────────────────────
+    CW, EW = _get_nav_widths()
+
+    # ── 1. LOGOUT HOOK ───────────────────────────────────────────────────────
+    # A real Streamlit "Logout" button is placed inside st.sidebar.
+    # The sidebar div is hidden by the injected CSS, so users never see it,
+    # but the button IS present in the DOM.  The JS sidebar logout button
+    # searches `querySelectorAll('button')` for text "Logout" and clicks it,
+    # which fires this Python handler → clears session → st.rerun().
+    with st.sidebar:
+        if st.button("Logout", key="_nb_sidebar_logout"):
+            st.session_state.clear()
+            st.rerun()
+
+    # ── 2. BUILD DATA ────────────────────────────────────────────────────────
+    allowed_tabs = get_allowed_tabs()
+    if "Ageing" not in allowed_tabs:
+        idx = (allowed_tabs.index("Dashboard") + 1
+               if "Dashboard" in allowed_tabs else 1)
+        allowed_tabs.insert(idx, "Ageing")
+
+    username = st.session_state.get("user", "")
+    role     = st.session_state.get("role", "")
+    logo_b64 = _get_logo_b64()
+
+    tab_js = ", ".join(
+        '{{key:"{k}",label:"{l}",icon:"{i}"}}'.format(
+            k=k.replace('"', '\\"'),
+            l=TAB_MAP.get(k, k).replace('"', '\\"'),
+            i=TAB_ICONS.get(k, "▸")
+        )
+        for k in allowed_tabs
+    )
+    user_str  = (username + " · " + role).replace('"', '\\"')
+    logo_src  = ("data:image/png;base64," + logo_b64) if logo_b64 else ""
+    cw, ew    = str(CW), str(EW)
+
+    # ── 3. CSS ───────────────────────────────────────────────────────────────
+    css = (
+        # content area — collapsed
+        "[data-testid='stMain']{"
+        "margin-left:" + cw + "px!important;"
+        "width:calc(100vw - " + cw + "px)!important;"
+        "max-width:calc(100vw - " + cw + "px)!important;"
+        "min-width:0!important;"
+        "box-sizing:border-box!important;"
+        "transition:margin-left .28s cubic-bezier(.4,0,.2,1),"
+        "width .28s cubic-bezier(.4,0,.2,1);}"
+
+        # content area — expanded
+        "body:has(#pak-sb:hover) [data-testid='stMain']{"
+        "margin-left:" + ew + "px!important;"
+        "width:calc(100vw - " + ew + "px)!important;"
+        "max-width:calc(100vw - " + ew + "px)!important;}"
+
+        # inner block container
+        "[data-testid='stMain'] .block-container{"
+        "max-width:100%!important;"
+        "padding-left:1rem!important;"
+        "padding-right:1rem!important;"
+        "box-sizing:border-box!important;}"
+
+        # hide Streamlit chrome
+        "header[data-testid='stHeader'],"
+        "[data-testid='stToolbar'],"
+        "[data-testid='stDecoration']{"
+        "display:none!important;}"
+
+        # hide sidebar visually but keep it in the DOM
+        # (so the hidden Logout button JS can click it)
+        "[data-testid='stSidebar']{"
+        "display:none!important;"
+        "visibility:hidden!important;"
+        "pointer-events:none!important;"
+        "position:absolute!important;"
+        "left:-9999px!important;}"
+
+        # hide native tab bar — every possible selector
+        "[data-testid='stTabBar'],"
+        "div[data-testid='stTabBar'],"
+        ".stTabs [data-testid='stTabBar'],"
+        "[data-baseweb='tab-list']{"
+        "display:none!important;"
+        "visibility:hidden!important;"
+        "opacity:0!important;"
+        "height:0!important;"
+        "max-height:0!important;"
+        "min-height:0!important;"
+        "overflow:hidden!important;"
+        "margin:0!important;"
+        "padding:0!important;"
+        "pointer-events:none!important;"
+        "position:absolute!important;"
+        "top:-9999px!important;}"
+
+        # sidebar shell
+        "#pak-sb{"
+        "position:fixed;top:0;left:0;bottom:0;z-index:99999;"
+        "width:" + cw + "px;overflow:hidden;"
+        "background:linear-gradient(180deg,#0b1120 0%,#0e1a30 55%,#0a1422 100%);"
+        "box-shadow:3px 0 24px rgba(0,0,0,.50);"
+        "transition:width .28s cubic-bezier(.4,0,.2,1);"
+        "display:flex;flex-direction:column;"
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+        "-webkit-font-smoothing:antialiased;}"
+        "#pak-sb:hover{width:" + ew + "px;}"
+
+        # logo area — vertical stack: logo on top, brand name below
+        ".psb-logo{display:flex;flex-direction:column;align-items:center;"
+        "justify-content:center;gap:5px;"
+        "padding:14px 0 12px;"
+        "border-bottom:1px solid rgba(255,255,255,.06);"
+        "flex-shrink:0;min-width:" + ew + "px;}"
+
+        # company logo image — always visible (collapsed + expanded), centred
+        ".psb-logo-img{"
+        "width:40px;height:40px;"
+        "border-radius:8px;"
+        "object-fit:contain;"
+        "display:block;}"
+
+        # fallback hamburger (shown only when no logo image)
+        ".psb-ham{font-size:22px;color:#4a5e7a;cursor:default;"
+        "user-select:none;"
+        "transition:color .22s,transform .30s cubic-bezier(.4,0,.2,1);}"
+        "#pak-sb:hover .psb-ham{color:#94a3b8;transform:rotate(90deg);}"
+
+        # brand text — collapses to height 0 when sidebar is narrow, fades in below logo on expand
+        ".psb-brand{font-size:14.5px;font-weight:800;color:#0076CE;letter-spacing:.9px;"
+        "white-space:nowrap;text-align:center;"
+        "opacity:0;max-height:0;overflow:hidden;"
+        "transition:opacity .20s ease .06s,max-height .22s ease .06s;}"
+        "#pak-sb:hover .psb-brand{opacity:1;max-height:24px;}"
+
+        # nav list
+        ".psb-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 6px;"
+        "scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent;"
+        "min-width:" + ew + "px;}"
+        ".psb-nav::-webkit-scrollbar{width:4px;}"
+        ".psb-nav::-webkit-scrollbar-thumb{"
+        "background:rgba(255,255,255,.08);border-radius:4px;}"
+
+        # nav item
+        ".psb-item{display:flex;align-items:center;gap:10px;"
+        "padding:8px 8px 8px 9px;border-radius:8px;cursor:pointer;"
+        "white-space:nowrap;user-select:none;margin-bottom:2px;"
+        "transition:background .14s;}"
+        ".psb-item:hover{background:rgba(255,255,255,.06);}"
+        ".psb-item.psb-active{background:rgba(0,118,206,.22);}"
+
+        # icon — visible collapsed, hidden expanded
+        ".psb-icon{font-size:15px;flex-shrink:0;width:22px;text-align:center;"
+        "opacity:.70;"
+        "transition:opacity .14s,width .20s,font-size .20s;}"
+        ".psb-item:hover .psb-icon,"
+        ".psb-item.psb-active .psb-icon{opacity:1;}"
+        "#pak-sb:hover .psb-icon{"
+        "opacity:0!important;width:0!important;"
+        "font-size:0!important;overflow:hidden!important;}"
+
+        # label — hidden collapsed, visible expanded
+        ".psb-lbl{font-size:12.5px;font-weight:500;color:#6b7fa0;"
+        "opacity:0;transform:translateX(-6px);pointer-events:none;"
+        "transition:opacity .20s ease .05s,transform .20s ease .05s,color .14s;}"
+        "#pak-sb:hover .psb-lbl{"
+        "opacity:1;transform:translateX(0);pointer-events:all;}"
+        ".psb-item:hover .psb-lbl{color:#c8d6e8;}"
+        ".psb-item.psb-active .psb-lbl{color:#38bdf8;font-weight:700;}"
+
+        # footer
+        ".psb-footer{flex-shrink:0;padding:10px 6px 14px;"
+        "border-top:1px solid rgba(255,255,255,.06);min-width:" + ew + "px;}"
+        ".psb-urow{display:flex;align-items:center;gap:9px;"
+        "padding:7px 8px;border-radius:8px;margin-bottom:6px;}"
+        ".psb-avatar{font-size:15px;flex-shrink:0;width:22px;text-align:center;}"
+        ".psb-uname{font-size:11.5px;font-weight:600;color:#3d5068;white-space:nowrap;"
+        "opacity:0;transform:translateX(-6px);"
+        "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
+        "#pak-sb:hover .psb-uname{opacity:1;transform:translateX(0);}"
+
+        # logout button
+        "#pak-logout{display:flex;align-items:center;gap:9px;width:100%;"
+        "padding:7px 8px 7px 9px;border-radius:8px;"
+        "background:#990000;border:1px solid rgba(239,68,68,.18);"
+        "cursor:pointer;font-family:inherit;"
+        "transition:background .15s,border-color .15s;}"
+        "#pak-logout:hover{"
+        "background:#008000;border-color:rgba(239,68,68,.40);}"
+        ".psb-lico{font-size:15px;flex-shrink:0;width:22px;text-align:center;}"
+        ".psb-ltxt{font-size:12.5px;font-weight:600;color:#aee800;white-space:nowrap;"
+        "opacity:0;transform:translateX(-6px);"
+        "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
+        "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
+
+        # ── pak-mob-open: mirrors :hover expanded state for touch ──────────
+        "#pak-sb.pak-mob-open .psb-lbl{opacity:1!important;transform:translateX(0)!important;pointer-events:all!important;}"
+        "#pak-sb.pak-mob-open .psb-icon{opacity:0!important;width:0!important;font-size:0!important;overflow:hidden!important;}"
+        "#pak-sb.pak-mob-open .psb-brand{opacity:1!important;max-height:24px!important;}"
+        "#pak-sb.pak-mob-open .psb-uname{opacity:1!important;transform:translateX(0)!important;}"
+        "#pak-sb.pak-mob-open .psb-ltxt{opacity:1!important;transform:translateX(0)!important;}"
+
+        # ── Mobile media query ───────────────────────────────────────────────
+        "@media(max-width:767px){"
+        "#pak-mob-toggle{"
+        "position:fixed;top:10px;left:10px;z-index:2147483647;"
+        "width:40px;height:40px;"
+        "background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);"
+        "border-radius:9px;border:none;cursor:pointer;"
+        "font-size:20px;color:#fff;"
+        "display:flex;align-items:center;justify-content:center;"
+        "box-shadow:0 3px 14px rgba(0,118,206,0.50);"
+        "transition:transform .14s,background .18s;"
+        "-webkit-tap-highlight-color:transparent;"
+        "touch-action:manipulation;}"
+        "#pak-mob-toggle:active{transform:scale(0.91);}"
+        "#pak-mob-backdrop{"
+        "position:fixed;inset:0;z-index:2147483646;"
+        "background:rgba(0,0,0,0.52);display:none;"
+        "-webkit-tap-highlight-color:transparent;}"
+        "#pak-mob-backdrop.pak-mob-open{display:block!important;}"
+        "#pak-sb{width:0!important;transition:width .28s cubic-bezier(.4,0,.2,1)!important;}"
+        "#pak-sb.pak-mob-open{width:190px!important;z-index:2147483647!important;}"
+        "[data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
+        "body:has(#pak-sb:hover) [data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
+        "}"
+    )
+
+    # ── 4. IFRAME HTML + JS ──────────────────────────────────────────────────
+    # JS strings use single-quotes only to avoid escaping issues.
+    # LOGO_SRC is injected as a Python string; empty string → show fallback.
+    html = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'></head>
 <body style='margin:0;padding:0;background:transparent;'>
 <script>
 (function(){
-  var P = window.parent;
-  // Only apply on mobile-width screens
-  if (!P || P.innerWidth > 767) return;
 
-  function fixChart(gd) {
-    try {
-      if (gd._fullLayout !== undefined && P.Plotly) {
-        // dragmode:false keeps hover tooltips but disables pan/zoom/select
-        P.Plotly.relayout(gd, { dragmode: false });
-        // Also override the internal scroll handler to prevent wheel zoom
-        if (gd._fullLayout._scrollZoom) {
-          gd._fullLayout._scrollZoom = {};
-        }
+var TABS     = [""" + tab_js + """];
+var USER     = '""" + user_str + """';
+var LOGO_SRC = '""" + logo_src + """';   /* base64 data-URI or empty */
+
+/* ── retry boot until parent DOM ready ── */
+var gaps=[0,100,300,700,1500,3000], gi=0;
+(function attempt(){
+  if(gi>=gaps.length)return;
+  setTimeout(function(){ gi++; boot(); attempt(); }, gaps[gi]);
+})();
+
+/* ── cancel stale timers to prevent pile-up across reruns ── */
+function cancelPending(){
+  if(window._pakNavT){ window._pakNavT.forEach(function(t){ clearTimeout(t); }); }
+  window._pakNavT=[];
+}
+function laterDo(fn,ms){
+  if(!window._pakNavT) window._pakNavT=[];
+  window._pakNavT.push(setTimeout(fn,ms));
+}
+
+/* ── close mobile nav (safe to call anytime) ── */
+function closeMobileNav(P){
+  var sb=P.getElementById('pak-sb');
+  var bd=P.getElementById('pak-mob-backdrop');
+  if(sb) sb.classList.remove('pak-mob-open');
+  if(bd) bd.classList.remove('pak-mob-open');
+}
+
+function boot(){
+  var P=window.parent.document;
+  if(!P||!P.body) return;
+  cancelPending();
+  /* Remove login-page left panel if it survived from before login */
+  ['pak-login-left','pak-login-left-css'].forEach(function(id){
+    var e=P.getElementById(id); if(e) e.remove();
+  });
+  if(P.getElementById('pak-sb')){ rebind(P); return; }
+  injectCSS(P);
+  injectHTML(P);
+  injectMobileUI(P);
+  hideTabBar(P);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
+  laterDo(function(){ hideTabBar(P); }, 1200);
+}
+
+/* ── inject hamburger button + backdrop for mobile ── */
+function injectMobileUI(P){
+  if(P.getElementById('pak-mob-toggle')) return;
+
+  var bd=P.createElement('div');
+  bd.id='pak-mob-backdrop';
+  bd.addEventListener('click',function(){
+    closeMobileNav(P);
+  });
+  P.body.insertBefore(bd, P.body.firstChild);
+
+  var btn=P.createElement('button');
+  btn.id='pak-mob-toggle';
+  btn.innerHTML='&#9776;';
+  btn.setAttribute('aria-label','Open navigation');
+  btn.addEventListener('click',function(e){
+    e.stopPropagation();
+    var sb=P.getElementById('pak-sb');
+    if(!sb) return;
+    var open=sb.classList.toggle('pak-mob-open');
+    bd.classList.toggle('pak-mob-open', open);
+  });
+  P.body.insertBefore(btn, P.body.firstChild);
+}
+
+/* ── inject CSS into parent <head> ── */
+function injectCSS(P){
+  var s=P.createElement('style');
+  s.id='pak-sb-css';
+  s.textContent=""" + repr(css) + """;
+  P.head.appendChild(s);
+}
+
+/* ── build logo / brand header markup ── */
+function buildLogoHTML(){
+  var icon = LOGO_SRC
+    ? '<img class="psb-logo-img" src="'+LOGO_SRC+'" alt="PEAKADS">'
+    : '<span class="psb-ham">&#9776;</span>';
+  return '<div class="psb-logo">'+icon
+         +'<span class="psb-brand">PEAKADS&nbsp;LLP</span></div>';
+}
+
+/* ── inject sidebar HTML into parent <body> ── */
+function injectHTML(P){
+  var items=TABS.map(function(t){
+    return '<div class="psb-item" data-label="'+t.label+'">'
+      +'<span class="psb-icon">'+t.icon+'</span>'
+      +'<span class="psb-lbl">'+t.label+'</span></div>';
+  }).join('');
+
+  var el=P.createElement('div');
+  el.id='pak-sb';
+  el.innerHTML=
+    buildLogoHTML()
+    +'<div class="psb-nav">'+items+'</div>'
+    +'<div class="psb-footer">'
+    +'<div class="psb-urow">'
+    +'<span class="psb-avatar">&#128100;</span>'
+    +'<span class="psb-uname">'+USER+'</span></div>'
+    +'<button id="pak-logout">'
+    +'<span class="psb-lico">&#9211;</span>'
+    +'<span class="psb-ltxt">Logout</span></button></div>';
+
+  P.body.insertBefore(el, P.body.firstChild);
+}
+
+/* ── force-hide native tab bar via JS (belt-and-suspenders) ── */
+function hideTabBar(P){
+  var bars=P.querySelectorAll('[data-testid="stTabBar"],[data-baseweb="tab-list"]');
+  bars.forEach(function(b){
+    b.style.cssText='display:none!important;height:0!important;'
+      +'visibility:hidden!important;overflow:hidden!important;'
+      +'margin:0!important;padding:0!important;';
+  });
+  if(bars.length===0){
+    setTimeout(function(){ hideTabBar(P); }, 400);
+  }
+}
+
+/* ── find native Streamlit tab button by label text ── */
+function findTab(P,lbl){
+  var btns=P.querySelectorAll('button[data-testid="stTab"]');
+  for(var i=0;i<btns.length;i++){
+    if(btns[i].innerText.trim()===lbl.trim()) return btns[i];
+  }
+  return null;
+}
+
+/* ── sync active highlight ── */
+function syncActive(P){
+  var sel=P.querySelector('button[data-testid="stTab"][aria-selected="true"]');
+  if(!sel) return;
+  var lbl=sel.innerText.trim();
+  P.querySelectorAll('.psb-item').forEach(function(el){
+    el.classList.toggle('psb-active', el.dataset.label===lbl);
+  });
+}
+
+/* ── logout: find the hidden Streamlit "Logout" button in st.sidebar ── */
+function doLogout(P){
+  var all=P.querySelectorAll('button');
+  for(var i=0;i<all.length;i++){
+    /* skip our own visual sidebar button */
+    if(all[i].id==='pak-logout') continue;
+    if(all[i].innerText.trim()==='Logout'){
+      all[i].click();
+      /* Force full page reload after logout so the browser clears its
+         WebSocket message-hash cache. Without this, the new session's
+         hashes don't match the browser's stale cache → ForwardMsg MISS. */
+      setTimeout(function(){ window.location.reload(); }, 600);
+      return;
+    }
+  }
+  /* Fallback: broader match in case label changes */
+  for(var j=0;j<all.length;j++){
+    if(all[j].id==='pak-logout') continue;
+    if(all[j].innerText.trim().toLowerCase().includes('logout')){
+      all[j].click();
+      setTimeout(function(){ window.location.reload(); }, 600);
+      return;
+    }
+  }
+}
+
+/* ── bind click events ── */
+function bindAll(P){
+  /* fresh clones drop stale listeners */
+  P.querySelectorAll('.psb-item').forEach(function(el){
+    var f=el.cloneNode(true); el.parentNode.replaceChild(f,el);
+  });
+  P.querySelectorAll('.psb-item').forEach(function(el){
+    el.addEventListener('click',function(){
+      /* close mobile nav FIRST before btn.click() triggers rerun */
+      closeMobileNav(P);
+      var btn=findTab(P,this.dataset.label);
+      if(btn){
+        P.querySelectorAll('.psb-item').forEach(function(x){
+          x.classList.remove('psb-active');
+        });
+        el.classList.add('psb-active');
+        setTimeout(function(){ btn.click(); }, 60);
       }
-    } catch(e) {}
-  }
-
-  function scanAndFix() {
-    P.document.querySelectorAll('.js-plotly-plot').forEach(fixChart);
-  }
-
-  // Watch for charts being added dynamically (Streamlit rerenders)
-  var obs = new P.MutationObserver(function(mutations) {
-    mutations.forEach(function(m) {
-      m.addedNodes.forEach(function(node) {
-        if (node.nodeType !== 1) return;
-        if (node.classList && node.classList.contains('js-plotly-plot')) {
-          fixChart(node);
-        }
-        node.querySelectorAll && node.querySelectorAll('.js-plotly-plot')
-          .forEach(fixChart);
-      });
     });
   });
 
-  try {
-    obs.observe(P.document.body, { childList: true, subtree: true });
-  } catch(e) {}
+  /* logout */
+  var lb=P.getElementById('pak-logout');
+  if(lb){
+    var lf=lb.cloneNode(true); lb.parentNode.replaceChild(lf,lb);
+    lf.addEventListener('click',function(){ doLogout(P); });
+  }
 
-  // Fix any charts already on the page, and retry a few times for late renders
-  [0, 300, 800, 1500].forEach(function(d) {
-    setTimeout(scanAndFix, d);
-  });
+  syncActive(P);
+
+  /* MutationObserver: watch tab bar aria-selected */
+  var bar=P.querySelector('[data-testid="stTabBar"]');
+  if(bar){
+    new MutationObserver(function(){ syncActive(P); })
+      .observe(bar,{subtree:true,attributes:true,attributeFilter:['aria-selected']});
+  }
+}
+
+function rebind(P){
+  cancelPending();
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
+  laterDo(function(){ bindAll(P); hideTabBar(P); }, 700);
+}
+
 })();
 </script>
 </body></html>"""
-    components.html(plotly_mobile_js, height=0, scrolling=False)
 
-    # First run: query params haven't been set yet — force a rerun
-    sw_ss = st.session_state.get("_pak_screen_w", 0)
-    if sw_ss == 0 and not st.session_state.get("_pak_detect_done"):
-        st.session_state["_pak_detect_done"] = True
-        st.rerun()
+    components.html(html, height=0, scrolling=False)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# get_screen_config
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_screen_config() -> ScreenConfig:
-    """
-    Returns a ScreenConfig based on the detected (or default) screen size.
-    Safe to call multiple times — reads from session_state.
-    """
-    sw = int(st.session_state.get("_pak_screen_w") or 0)
-    sh = int(st.session_state.get("_pak_screen_h") or 0)
-
-    # Fallback if detection hasn't fired yet
-    if sw == 0:
-        sw, sh = 1280, 800
-
-    if sw < BP_MOBILE:
-        bp = "mobile"
-    elif sw < BP_TABLET:
-        bp = "tablet"
-    elif sw < BP_DESKTOP:
-        bp = "desktop"
-    else:
-        bp = "large"
-
-    return ScreenConfig(screen_w=sw, screen_h=sh, breakpoint=bp)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# inject_responsive_css
-# ─────────────────────────────────────────────────────────────────────────────
-
-def inject_responsive_css(sc: ScreenConfig | None = None) -> None:
-    """
-    Injects a comprehensive responsive CSS stylesheet.
-    Combines @media queries (for pure CSS properties) with Python-computed
-    values (from sc) so both static and dynamic sizes are handled.
-
-    Call after st.set_page_config(), ideally right after detect_screen().
-    """
-    if sc is None:
-        sc = get_screen_config()
-
-    cw = sc.navbar_cw
-    ew = sc.navbar_ew
-
-    # Python-computed values injected directly into :root CSS variables
-    root_vars = f"""
-:root {{
-  --pak-nav-cw         : {cw}px;
-  --pak-nav-ew         : {ew}px;
-  --pak-block-pad      : {sc.block_padding};
-  --pak-card-pad       : {sc.card_padding};
-  --pak-font-scale     : {sc.font_scale};
-  --pak-base-font      : {round(12.5 * sc.font_scale, 1)}px;
-  --pak-tab-font       : {round(12.5 * sc.font_scale, 1)}px;
-  --pak-btn-font       : {round(12.5 * sc.font_scale, 1)}px;
-  --pak-label-font     : {round(13.0 * sc.font_scale, 1)}px;
-  --pak-header-font    : {round(13.5 * sc.font_scale, 1)}px;
-  --pak-btn-pad-v      : {round(6  * sc.font_scale, 1)}px;
-  --pak-btn-pad-h      : {round(15 * sc.font_scale, 1)}px;
-  --pak-tab-pad-v      : {round(6  * sc.font_scale, 1)}px;
-  --pak-tab-pad-h      : {round(13 * sc.font_scale, 1)}px;
-}}"""
-
-    # Full responsive stylesheet
-    css = root_vars + """
-
-/* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE LAYOUT — content area adapts to navbar width
-   ═══════════════════════════════════════════════════════════════ */
-
-[data-testid='stMain'] {
-    margin-left  : var(--pak-nav-cw)  !important;
-    width        : calc(100vw - var(--pak-nav-cw))  !important;
-    max-width    : calc(100vw - var(--pak-nav-cw))  !important;
-    min-width    : 0 !important;
-    box-sizing   : border-box !important;
-    transition   : margin-left .28s cubic-bezier(.4,0,.2,1),
-                   width       .28s cubic-bezier(.4,0,.2,1);
+    # ── Direct mobile hamburger — rendered in Streamlit DOM, no iframe needed ──
+    # More reliable than JS injection which can fail in some browser/CDN configs.
+    sw = int(st.session_state.get("_pak_screen_w") or 1280)
+    if sw < 768:
+        st.markdown("""
+<style>
+#_pak_ham_btn {
+    position:fixed; top:10px; left:10px; z-index:2147483647;
+    width:42px; height:42px;
+    background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);
+    border-radius:9px; border:none; cursor:pointer;
+    font-size:22px; color:#fff; line-height:1;
+    display:flex !important; align-items:center; justify-content:center;
+    box-shadow:0 3px 14px rgba(0,118,206,.55);
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    transition:transform .14s;
 }
-body:has(#pak-sb:hover) [data-testid='stMain'] {
-    margin-left  : var(--pak-nav-ew)  !important;
-    width        : calc(100vw - var(--pak-nav-ew))  !important;
-    max-width    : calc(100vw - var(--pak-nav-ew))  !important;
+#_pak_ham_btn:active { transform:scale(0.91); }
+#_pak_bd_direct {
+    display:none; position:fixed; inset:0; z-index:2147483646;
+    background:rgba(0,0,0,.52);
+    -webkit-tap-highlight-color:transparent;
 }
-[data-testid='stMain'] .block-container {
-    max-width    : 100% !important;
-    padding-left : var(--pak-block-pad) !important;
-    padding-right: var(--pak-block-pad) !important;
-    box-sizing   : border-box !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE TYPOGRAPHY — tabs, buttons, labels
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Tab bar */
-div[data-testid="stTabs"] button[role="tab"] {
-    font-size : var(--pak-tab-font)   !important;
-    padding   : var(--pak-tab-pad-v) var(--pak-tab-pad-h) !important;
-}
-div[data-testid="stTabs"] button[role="tab"] p {
-    font-size : var(--pak-header-font) !important;
-}
-
-/* All Streamlit buttons */
-div.stButton > button,
-div.stDownloadButton > button {
-    font-size : var(--pak-btn-font)   !important;
-    padding   : var(--pak-btn-pad-v) var(--pak-btn-pad-h) !important;
-}
-div.stButton > button p,
-div.stDownloadButton > button p {
-    font-size : inherit !important;
-}
-
-/* Selectbox, text inputs, labels */
-div[data-testid="stSelectbox"] label,
-div[data-testid="stTextInput"] label,
-div[data-testid="stDateInput"] label,
-div[data-testid="stMultiSelect"] label,
-div[data-testid="stNumberInput"] label {
-    font-size : var(--pak-label-font) !important;
-}
-div[data-testid="stSelectbox"] > div > div,
-div[data-testid="stTextInput"] input,
-div[data-testid="stNumberInput"] input {
-    font-size : var(--pak-base-font) !important;
-}
-
-/* Metric values */
-div[data-testid="stMetric"] label {
-    font-size : var(--pak-base-font) !important;
-}
-div[data-testid="stMetricValue"] {
-    font-size : clamp(14px, 1.4vw, 28px) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   KPI CARDS — uniform height, responsive font
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Force all KPI columns in a row to stretch to equal height */
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
-    align-items: stretch !important;
-}
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-    > [data-testid="stVerticalBlockBorderWrapper"] {
-    display       : flex !important;
-    flex-direction: column !important;
-}
-[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-    > [data-testid="stVerticalBlockBorderWrapper"]
-    > div {
-    flex: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-.pak-kpi-card {
-    padding       : clamp(10px, 1.2vw, 20px) clamp(10px, 1.4vw, 20px);
-    border-radius : 14px;
-    box-shadow    : 0 6px 20px rgba(0,0,0,0.22);
-    margin-bottom : 8px;
-    height        : 100%;
-    min-height    : 88px;
-    display       : flex;
-    flex-direction: column;
-    justify-content: center;
-    box-sizing    : border-box;
-}
-.pak-kpi-title {
-    font-size     : clamp(9px, 0.75vw, 12px);
-    font-weight   : 700;
-    color         : #FFEF00;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-    line-height   : 1.3;
-}
-.pak-kpi-value {
-    font-size     : clamp(15px, 1.6vw, 28px);
-    font-weight   : 900;
-    color         : #fff;
-    margin-top    : 4px;
-    letter-spacing: -0.5px;
-    line-height   : 1.15;
-    word-break    : break-all;
-}
-
-
-
-/* AgGrid cell text — scales with viewport */
-.ag-cell, .ag-header-cell-text {
-    font-size : clamp(10px, 0.75vw, 13px) !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   MOBILE  (< 768px) — compact everything
-   ═══════════════════════════════════════════════════════════════ */
-@media (max-width: 767px) {
-
-    /* Navbar collapses to zero width — tap icon to open */
-    [data-testid='stMain'] {
-        margin-left  : 0 !important;
-        width        : 100vw !important;
-        max-width    : 100vw !important;
+</style>
+<button id="_pak_ham_btn" onclick="(function(){
+    var sb = document.getElementById('pak-sb');
+    var bd = document.getElementById('_pak_bd_direct');
+    if(!sb) return;
+    var open = sb.classList.toggle('pak-mob-open');
+    if(bd) bd.style.display = open ? 'block' : 'none';
+})();">&#9776;</button>
+<div id="_pak_bd_direct" onclick="(function(){
+    var sb = document.getElementById('pak-sb');
+    if(sb) sb.classList.remove('pak-mob-open');
+    this.style.display = 'none';
+}).call(this);"></div>
+<script>
+/* Also fix subnav z-index on mobile so they render above charts */
+(function(){
+    if(window.innerWidth > 767) return;
+    function fixZ(){
+        ['dash-sidenav','inv-sidenav'].forEach(function(id){
+            var el = document.getElementById(id);
+            if(el) el.style.setProperty('z-index','2147483645','important');
+        });
     }
-    body:has(#pak-sb:hover) [data-testid='stMain'] {
-        margin-left  : 190px !important;
-        width        : calc(100vw - 190px) !important;
-        max-width    : calc(100vw - 190px) !important;
-    }
-
-    /* Touch-friendly buttons — min 44px tap target */
-    div.stButton > button,
-    div.stDownloadButton > button {
-        min-height    : 44px !important;
-        padding       : 10px 12px !important;
-        font-size     : 11px !important;
-        border-radius : 8px  !important;
-        width         : 100% !important;
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
-    }
-
-    /* Tabs — smaller, scrollable */
-    div[data-testid="stTabs"] button[role="tab"] {
-        font-size : 10px !important;
-        padding   : 5px 7px !important;
-        min-width : 0 !important;
-        white-space: nowrap !important;
-    }
-    div[data-baseweb="tab-list"] {
-        gap         : 2px !important;
-        padding     : 4px 4px !important;
-        overflow-x  : auto !important;
-        flex-wrap   : nowrap !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    /* KPI cards — 2 per row on mobile */
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
-        flex-wrap : wrap !important;
-    }
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-        > [data-testid="stVerticalBlockBorderWrapper"] {
-        width   : calc(50% - 4px) !important;
-        flex    : none !important;
-        min-width: 0 !important;
-    }
-    .pak-kpi-card {
-        min-height : 70px !important;
-    }
-    .pak-kpi-value {
-        font-size  : clamp(14px, 4.5vw, 20px) !important;
-    }
-    .pak-kpi-title {
-        font-size  : 9px !important;
-    }
-
-    /* Stack ALL other columns vertically */
-    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card)) {
-        flex-direction: column !important;
-    }
-    [data-testid="stHorizontalBlock"]:not(:has(.pak-kpi-card))
-        > [data-testid="stVerticalBlockBorderWrapper"] {
-        width   : 100% !important;
-        flex    : none !important;
-    }
-
-    /* Metric value — smaller on phones */
-    div[data-testid="stMetricValue"] {
-        font-size : 16px !important;
-    }
-
-    /* Block container padding */
-    .block-container {
-        padding-left : 6px  !important;
-        padding-right: 6px  !important;
-        padding-top  : 4px  !important;
-    }
-
-    /* ── Navbar z-index: always on top of everything on mobile ── */
-    /* Max possible z-index so charts, cards, modals can't stack above */
-    #pak-mob-toggle {
-        z-index: 2147483647 !important;
-    }
-    #pak-sb,
-    #pak-sb.pak-mob-open {
-        z-index: 2147483647 !important;
-    }
-    #pak-mob-backdrop,
-    #pak-mob-backdrop.pak-mob-open {
-        z-index: 2147483646 !important;
-    }
-
-    /* ── Dashboard & Invoice subnavs: high z-index so they show above charts ── */
-    #dash-sidenav {
-        z-index: 2147483645 !important;
-    }
-    #inv-sidenav {
-        z-index: 2147483645 !important;
-    }
-
-    /* ── KPI cards: no stacking context that traps fixed elements ── */
-    .pak-kpi-card {
-        isolation : auto !important;
-    }
-    .ag-root-wrapper {
-        overflow-x : auto !important;
-        -webkit-overflow-scrolling: touch !important;
-    }
-
-    /* ── Plotly charts on mobile: allow page scroll, block chart zoom/pan ── */
-    /* touch-action:pan-y lets the browser handle vertical scroll (page scroll)
-       and blocks pinch-zoom / horizontal drag being captured by Plotly */
-    .js-plotly-plot,
-    .js-plotly-plot .plotly,
-    .js-plotly-plot svg,
-    .js-plotly-plot .gl-container,
-    [data-testid="stPlotlyChart"] {
-        touch-action      : pan-y !important;
-        overscroll-behavior: contain !important;
-    }
-
-    /* ── Wide multi-column tables (P&L, Costs Centre) — horizontal scroll ── */
-    /* Wrap the stMarkdown/block-container so the TABLE can be wider than viewport */
-    .block-container [data-testid="stMarkdownContainer"],
-    [data-testid="stMarkdownContainer"] {
-        overflow-x : auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        max-width  : calc(100vw - 12px) !important;
-    }
-    /* HTML tables inside markdown: don't squish, let them scroll */
-    .stMarkdown table,
-    [data-testid="stMarkdownContainer"] table {
-        width      : max-content !important;
-        min-width  : 100% !important;
-        font-size  : 10px !important;
-    }
-    .stMarkdown table th,
-    .stMarkdown table td,
-    [data-testid="stMarkdownContainer"] table th,
-    [data-testid="stMarkdownContainer"] table td {
-        min-width  : 52px !important;
-        max-width  : 110px !important;
-        white-space: nowrap !important;
-        padding    : 3px 5px !important;
-        font-size  : 10px !important;
-        overflow   : hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    /* AgGrid: enforce minimum column width so text isn't squished to 2 chars */
-    .ag-header-cell {
-        min-width  : 65px !important;
-    }
-    .ag-cell {
-        min-width  : 55px !important;
-        font-size  : 10.5px !important;
-    }
-    /* AgGrid iframe wrapper — allow horizontal scroll */
-    [data-testid="stCustomComponentV1"],
-    iframe[title*="st_aggrid"],
-    iframe[title*="AgGrid"] {
-        overflow-x : auto !important;
-        width      : 100% !important;
-        max-width  : calc(100vw - 12px) !important;
-    }
-
-    /* Selectbox & multiselect full width */
-    div[data-testid="stSelectbox"],
-    div[data-testid="stMultiSelect"],
-    div[data-testid="stDateInput"],
-    div[data-testid="stTextInput"] {
-        width: 100% !important;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   TABLET  (768px – 1199px) — balanced scaling
-   ═══════════════════════════════════════════════════════════════ */
-@media (min-width: 768px) and (max-width: 1199px) {
-
-    div.stButton > button,
-    div.stDownloadButton > button {
-        min-height    : 38px !important;
-        font-size     : 11px !important;
-        padding       : 6px 10px !important;
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
-    }
-
-    div[data-testid="stTabs"] button[role="tab"] {
-        font-size : 11px !important;
-        padding   : 5px 9px !important;
-    }
-
-    div[data-testid="stMetricValue"] {
-        font-size : clamp(14px, 1.6vw, 22px) !important;
-    }
-
-    .block-container {
-        padding-left : 10px !important;
-        padding-right: 10px !important;
-    }
-
-    /* KPI cards — 3 per row on tablet (6-col row wraps to 2 rows of 3) */
-    [data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
-        > [data-testid="stVerticalBlockBorderWrapper"] {
-        min-width : calc(33.33% - 8px) !important;
-        flex      : 1 1 calc(33.33% - 8px) !important;
-    }
-    .pak-kpi-value {
-        font-size : clamp(13px, 1.5vw, 22px) !important;
-    }
-    .pak-kpi-title {
-        font-size : clamp(8px, 0.8vw, 11px) !important;
-    }
-
-    /* Invoice subnav — slightly smaller on tablet */
-    .inv-snav-btn {
-        font-size  : 11px !important;
-        padding    : 6px 10px !important;
-    }
-    .inv-snav-handle {
-        width      : 8px !important;
-        min-height : 140px !important;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   DESKTOP  (1200px – 1919px) — original / reference sizes
-   ═══════════════════════════════════════════════════════════════ */
-@media (min-width: 1200px) and (max-width: 1919px) {
-    div[data-testid="stMetricValue"] {
-        font-size : clamp(18px, 1.4vw, 28px) !important;
-    }
-
-    /* On smaller desktop monitors, buttons may wrap — allow graceful wrap */
-    div.stButton > button,
-    div.stDownloadButton > button {
-        white-space   : normal !important;
-        word-break    : break-word !important;
-        line-height   : 1.3 !important;
-        min-height    : 36px !important;
-    }
-
-    /* KPI value clips on narrow columns — let it shrink */
-    .pak-kpi-value {
-        font-size : clamp(14px, 1.5vw, 28px) !important;
-    }
-    .pak-kpi-title {
-        font-size : clamp(9px, 0.7vw, 12px) !important;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LARGE  (≥ 1920px) — 32"+ monitors, scale UP
-   ═══════════════════════════════════════════════════════════════ */
-@media (min-width: 1920px) {
-
-    div.stButton > button,
-    div.stDownloadButton > button {
-        font-size  : 14px   !important;
-        padding    : 8px 18px !important;
-    }
-
-    div[data-testid="stTabs"] button[role="tab"] {
-        font-size : 14px   !important;
-        padding   : 8px 16px !important;
-    }
-    div[data-testid="stTabs"] button[role="tab"] p {
-        font-size : 15px !important;
-    }
-
-    div[data-testid="stSelectbox"] label,
-    div[data-testid="stTextInput"] label,
-    div[data-testid="stDateInput"] label,
-    div[data-testid="stMultiSelect"] label {
-        font-size : 14px !important;
-    }
-
-    div[data-testid="stMetricValue"] {
-        font-size : clamp(22px, 1.6vw, 36px) !important;
-    }
-
-    .block-container {
-        padding-left : 22px !important;
-        padding-right: 22px !important;
-    }
-
-    .ag-cell, .ag-header-cell-text {
-        font-size : 13.5px !important;
-    }
-
-    /* Subnav bigger on 32" */
-    .inv-snav-btn {
-        font-size  : 14px !important;
-        padding    : 10px 18px !important;
-    }
-    #inv-sidenav {
-        font-size  : 14px !important;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   UNIVERSAL QUALITY-OF-LIFE FIXES
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Prevent tables from looking broken on any screen */
-.ag-root-wrapper {
-    border-radius : 8px !important;
-    overflow      : hidden !important;
-}
-
-/* Horizontal scroll container for wide tables on small screens */
-.ag-body-horizontal-scroll {
-    display : block !important;
-}
-
-/* Smooth font rendering */
-html {
-    -webkit-font-smoothing : antialiased !important;
-    text-rendering         : optimizeLegibility !important;
-}
-
-/* Streamlit columns — let them wrap on narrow screens */
-[data-testid="stHorizontalBlock"] {
-    flex-wrap : wrap !important;
-    gap       : 0.5rem !important;
-}
-
-/* Plotly charts — always fill container width */
-.js-plotly-plot, .plotly, .stPlotlyChart {
-    width      : 100% !important;
-    max-width  : 100% !important;
-}
-.stPlotlyChart > div {
-    width      : 100% !important;
-}
-
-/* Dataframe — horizontal scroll */
-[data-testid="stDataFrame"] {
-    width      : 100% !important;
-    overflow-x : auto !important;
-}
-"""
-
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Convenience: one-call setup
-# ─────────────────────────────────────────────────────────────────────────────
-
-def setup_responsive() -> ScreenConfig:
-    """
-    Call once after st.set_page_config().
-    Runs detection + injects CSS + returns ScreenConfig.
-
-    Usage:
-        sc = setup_responsive()
-        AgGrid(..., height=sc.grid_height(650))
-    """
-    detect_screen()
-    sc = get_screen_config()
-    inject_responsive_css(sc)
-    return sc
+    fixZ();
+    new MutationObserver(fixZ).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+""", unsafe_allow_html=True)
