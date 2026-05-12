@@ -577,27 +577,13 @@ div[data-testid="stMetricValue"] {
     #pak-mob-toggle {
         z-index: 2147483647 !important;
     }
+    #pak-sb,
     #pak-sb.pak-mob-open {
         z-index: 2147483647 !important;
     }
     #pak-mob-backdrop,
     #pak-mob-backdrop.pak-mob-open {
         z-index: 2147483646 !important;
-    }
-
-    /* ── Dashboard & Invoice right-side subnavs: hide on mobile ──
-       The left hamburger navbar covers all tab navigation on mobile.
-       These fixed right-side hovers are unusable on touch and overlap content. */
-    #dash-sidenav,
-    #inv-sidenav {
-        display: none !important;
-    }
-
-    /* ── Plotly charts: don't create stacking context above navbar ── */
-    .js-plotly-plot {
-        isolation : auto !important;
-        z-index   : auto !important;
-        position  : relative !important;
     }
 
     /* ── KPI cards: no stacking context that traps fixed elements ── */
