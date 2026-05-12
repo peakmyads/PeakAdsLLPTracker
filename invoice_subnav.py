@@ -40,10 +40,15 @@ _INV_SUBTABS = [
 def render_invoice_subnav() -> None:
     """
     Call once, immediately before the Invoice Manager st.tabs([...]) call.
-    On mobile the subnav shows as a compact right-side dot-handle that expands on tap.
+    Automatically hidden on mobile screens (< 768px) — too narrow to be useful.
     """
 
-    # Build pill buttons + dots HTML
+    # Skip subnav on mobile — CSS also hides it, but skipping here saves render time
+    sw = int(st.session_state.get("_pak_screen_w") or 1280)
+    if sw > 0 and sw < 768:
+        return
+
+    # ── Build pill buttons + dots HTML ──────────────────────────────────────
     pills_html = '<div class="inv-snav-title">Navigate</div>'
     dots_html  = ""
     for tab_label, icon, short in _INV_SUBTABS:
@@ -196,22 +201,6 @@ def render_invoice_subnav() -> None:
     }}
     .inv-snav-icon  {{ font-size: 15px; line-height: 1; flex-shrink: 0; }}
     .inv-snav-label {{ font-size: 12px; }}
-
-    /* ── Mobile: always show expanded panel on tap; dots act as trigger ── */
-    @media (max-width: 767px) {{
-        #inv-sidenav {{
-            z-index: 2147483645 !important;
-        }}
-        /* On mobile: expand panel on tap via JS class, same as desktop hover */
-        #inv-sidenav.inv-mob-open .inv-snav-panel {{
-            max-width : 185px;
-            padding   : 14px 10px;
-        }}
-        #inv-sidenav.inv-mob-open .inv-snav-handle {{
-            width   : 0;
-            opacity : 0;
-        }}
-    }}
     </style>
 
     <div id="inv-sidenav">
@@ -271,7 +260,7 @@ def render_invoice_subnav() -> None:
       el.parentNode.replaceChild(f, el);
     });
 
-    // Bind click on each subnav button — also closes mobile panel
+    // Bind click on each subnav button
     P.querySelectorAll('.inv-snav-btn, .inv-snav-dot').forEach(function(el){
       el.addEventListener('click', function(){
         var btn = findInvTab(P, this.dataset.label);
@@ -282,22 +271,8 @@ def render_invoice_subnav() -> None:
             x.classList.toggle('inv-active', x.dataset.label === lbl);
           });
         }
-        /* close mobile panel after tap */
-        var sn = P.getElementById('inv-sidenav');
-        if(sn) sn.classList.remove('inv-mob-open');
       });
     });
-
-    /* Mobile: tap the handle to open/close the panel */
-    var handle = P.querySelector('#inv-sidenav .inv-snav-handle');
-    if(handle && !handle._invMobBound){
-      handle._invMobBound = true;
-      handle.addEventListener('click', function(e){
-        var sn = P.getElementById('inv-sidenav');
-        if(sn) sn.classList.toggle('inv-mob-open');
-        e.stopPropagation();
-      });
-    }
 
     // Watch all stTabBars for aria-selected changes → sync active pill
     P.querySelectorAll('[data-testid="stTabBar"]').forEach(function(bar){
