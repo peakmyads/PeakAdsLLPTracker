@@ -221,6 +221,61 @@ def detect_screen() -> None:
 
     components.html(bridge_js, height=0, scrolling=False)
 
+    # ── Mobile-only Plotly fix: disable drag/scroll zoom, keep hover ────────
+    # Runs inside a zero-height iframe; accesses parent window for Plotly API
+    plotly_mobile_js = """<!DOCTYPE html>
+<html><head><meta charset='utf-8'></head>
+<body style='margin:0;padding:0;background:transparent;'>
+<script>
+(function(){
+  var P = window.parent;
+  // Only apply on mobile-width screens
+  if (!P || P.innerWidth > 767) return;
+
+  function fixChart(gd) {
+    try {
+      if (gd._fullLayout !== undefined && P.Plotly) {
+        // dragmode:false keeps hover tooltips but disables pan/zoom/select
+        P.Plotly.relayout(gd, { dragmode: false });
+        // Also override the internal scroll handler to prevent wheel zoom
+        if (gd._fullLayout._scrollZoom) {
+          gd._fullLayout._scrollZoom = {};
+        }
+      }
+    } catch(e) {}
+  }
+
+  function scanAndFix() {
+    P.document.querySelectorAll('.js-plotly-plot').forEach(fixChart);
+  }
+
+  // Watch for charts being added dynamically (Streamlit rerenders)
+  var obs = new P.MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        if (node.classList && node.classList.contains('js-plotly-plot')) {
+          fixChart(node);
+        }
+        node.querySelectorAll && node.querySelectorAll('.js-plotly-plot')
+          .forEach(fixChart);
+      });
+    });
+  });
+
+  try {
+    obs.observe(P.document.body, { childList: true, subtree: true });
+  } catch(e) {}
+
+  // Fix any charts already on the page, and retry a few times for late renders
+  [0, 300, 800, 1500].forEach(function(d) {
+    setTimeout(scanAndFix, d);
+  });
+})();
+</script>
+</body></html>"""
+    components.html(plotly_mobile_js, height=0, scrolling=False)
+
     # First run: query params haven't been set yet — force a rerun
     sw_ss = st.session_state.get("_pak_screen_w", 0)
     if sw_ss == 0 and not st.session_state.get("_pak_detect_done"):
@@ -517,10 +572,55 @@ div[data-testid="stMetricValue"] {
         padding-top  : 4px  !important;
     }
 
+    /* ── Navbar z-index: always on top of everything on mobile ── */
+    /* Max possible z-index so charts, cards, modals can't stack above */
+    #pak-mob-toggle {
+        z-index: 2147483647 !important;
+    }
+    #pak-sb.pak-mob-open {
+        z-index: 2147483647 !important;
+    }
+    #pak-mob-backdrop,
+    #pak-mob-backdrop.pak-mob-open {
+        z-index: 2147483646 !important;
+    }
+
+    /* ── Dashboard & Invoice right-side subnavs: hide on mobile ──
+       The left hamburger navbar covers all tab navigation on mobile.
+       These fixed right-side hovers are unusable on touch and overlap content. */
+    #dash-sidenav,
+    #inv-sidenav {
+        display: none !important;
+    }
+
+    /* ── Plotly charts: don't create stacking context above navbar ── */
+    .js-plotly-plot {
+        isolation : auto !important;
+        z-index   : auto !important;
+        position  : relative !important;
+    }
+
+    /* ── KPI cards: no stacking context that traps fixed elements ── */
+    .pak-kpi-card {
+        isolation : auto !important;
+    }
+
     /* AgGrid — allow horizontal scroll on mobile */
     .ag-root-wrapper {
         overflow-x : auto !important;
         -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* ── Plotly charts on mobile: allow page scroll, block chart zoom/pan ── */
+    /* touch-action:pan-y lets the browser handle vertical scroll (page scroll)
+       and blocks pinch-zoom / horizontal drag being captured by Plotly */
+    .js-plotly-plot,
+    .js-plotly-plot .plotly,
+    .js-plotly-plot svg,
+    .js-plotly-plot .gl-container,
+    [data-testid="stPlotlyChart"] {
+        touch-action      : pan-y !important;
+        overscroll-behavior: contain !important;
     }
 
     /* ── Wide multi-column tables (P&L, Costs Centre) — horizontal scroll ── */
