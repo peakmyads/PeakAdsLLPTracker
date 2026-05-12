@@ -589,6 +589,24 @@ div[data-testid="stMetricValue"] {
         z-index: 2147483645 !important;
     }
 
+    /* ── Neutralize CSS transforms on Streamlit containers ──────────────────
+       If any ancestor of a position:fixed element has transform/will-change/
+       perspective, that element's fixed positioning is trapped inside the
+       ancestor's stacking context — making z-index ineffective against
+       siblings outside that context.
+       Removing transforms frees position:fixed subnavs to render above cards.
+    ─────────────────────────────────────────────────────────────────────── */
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    [data-testid="stVerticalBlock"],
+    [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stTabPanel"],
+    .block-container {
+        transform    : none !important;
+        will-change  : auto !important;
+        perspective  : none !important;
+    }
+
     /* ── KPI cards: no stacking context that traps fixed elements ── */
     .pak-kpi-card {
         isolation : auto !important;
