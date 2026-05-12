@@ -581,66 +581,12 @@ div[data-testid="stMetricValue"] {
         z-index: 2147483646 !important;
     }
 
-    /* ── Dashboard & Invoice subnavs: high z-index so they show above charts ── */
-    #dash-sidenav {
-        z-index: 2147483645 !important;
-    }
+    /* ── Hide right-side subnavs on mobile — nav is in the left hamburger sidebar ── */
+    #dash-sidenav,
     #inv-sidenav {
-        z-index: 2147483645 !important;
+        display: none !important;
     }
 
-    /* ── CRITICAL: disable sticky hover on touch devices ────────────────────
-       On mobile, a tap activates :hover which then "sticks" permanently,
-       expanding the subnav and blocking most of the screen.
-       @media(hover:none) targets touch-only devices (no real mouse).
-    ─────────────────────────────────────────────────────────────────────── */
-
-    /* Dashboard subnav — collapse hover, expand via .dash-mob-open tap class */
-    #dash-sidenav:hover .snav-panel {
-        max-width : 0     !important;
-        padding   : 0     !important;
-    }
-    #dash-sidenav:hover .snav-handle {
-        width   : 10px    !important;
-        opacity : 1       !important;
-    }
-    #dash-sidenav.dash-mob-open .snav-panel {
-        max-width : 185px       !important;
-        padding   : 14px 10px   !important;
-    }
-    #dash-sidenav.dash-mob-open .snav-handle {
-        width   : 0   !important;
-        opacity : 0   !important;
-    }
-
-    /* Invoice subnav — collapse hover, expand via .inv-mob-open tap class */
-    #inv-sidenav:hover .inv-snav-panel {
-        max-width : 0     !important;
-        padding   : 0     !important;
-    }
-    #inv-sidenav:hover .inv-snav-handle {
-        width   : 10px    !important;
-        opacity : 1       !important;
-    }
-    /* .inv-mob-open expansion already defined in invoice_subnav.py */
-
-    /* ── Neutralize CSS transforms on Streamlit containers ──────────────────
-       If any ancestor of a position:fixed element has transform/will-change/
-       perspective, that element's fixed positioning is trapped inside the
-       ancestor's stacking context — making z-index ineffective against
-       siblings outside that context.
-       Removing transforms frees position:fixed subnavs to render above cards.
-    ─────────────────────────────────────────────────────────────────────── */
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"],
-    [data-testid="stVerticalBlock"],
-    [data-testid="stVerticalBlockBorderWrapper"],
-    [data-testid="stTabPanel"],
-    .block-container {
-        transform    : none !important;
-        will-change  : auto !important;
-        perspective  : none !important;
-    }
 
     /* ── KPI cards: no stacking context that traps fixed elements ── */
     .pak-kpi-card {
