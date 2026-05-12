@@ -284,6 +284,9 @@ def render_navbar() -> None:
         "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
         "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
 
+        # pak-inv-subs hidden globally — mobile media query reveals it
+        "#pak-inv-subs{display:none!important;}"
+        ".pak-sub-item{display:none!important;}"
         # ── pak-mob-open: mirrors :hover expanded state for touch ──────────
         "#pak-sb.pak-mob-open .psb-lbl{opacity:1!important;transform:translateX(0)!important;pointer-events:all!important;}"
         "#pak-sb.pak-mob-open .psb-icon{opacity:0!important;width:0!important;font-size:0!important;overflow:hidden!important;}"
@@ -314,9 +317,9 @@ def render_navbar() -> None:
         "#pak-sb.pak-mob-open{width:190px!important;z-index:2147483647!important;}"
         "[data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
         "body:has(#pak-sb:hover) [data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
-        "#pak-inv-subs{display:none;flex-direction:column;gap:1px;margin:2px 0 4px 4px;padding:3px 0;border-left:2px solid rgba(0,118,206,0.30);}"
+        "#pak-inv-subs{flex-direction:column;gap:1px;margin:2px 0 4px 4px;padding:3px 0;border-left:2px solid rgba(0,118,206,0.30);}"
         "#pak-inv-subs.pak-inv-open{display:flex!important;}"
-        ".pak-sub-item{display:flex;align-items:center;gap:7px;padding:8px 8px 8px 14px;color:rgba(180,210,255,0.80);font-size:11px;font-weight:500;cursor:pointer;border-radius:0 8px 8px 0;transition:background .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}"
+        ".pak-sub-item{display:flex!important;align-items:center;gap:7px;padding:8px 8px 8px 14px;color:rgba(180,210,255,0.80);font-size:11px;font-weight:500;cursor:pointer;border-radius:0 8px 8px 0;transition:background .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}"
         ".pak-sub-item.pak-sub-active{background:rgba(0,118,206,0.35)!important;color:#fff!important;}"
         ".pak-sub-icon{font-size:13px;flex-shrink:0;}"
         ".pak-sub-lbl{font-size:11px;}"
