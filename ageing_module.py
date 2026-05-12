@@ -235,9 +235,30 @@ def _drilldown(detail_df, partner, name_col, amount_col, paid_col, due_col):
 
 
 def _gen_fy_list():
+    """Fallback: last 5 FYs from today (used when no data available)."""
     today = pd.Timestamp.today()
     start = today.year if today.month >= 4 else today.year - 1
     return [f"FY {y}-{str(y+1)[2:]}" for y in range(start, start - 5, -1)]
+
+
+def _get_fy_from_data(df):
+    """Return sorted-descending list of FYs that actually exist in df['Month'].
+    Falls back to _gen_fy_list() if df is empty or has no parseable dates."""
+    if df is None or df.empty or "Month" not in df.columns:
+        return _gen_fy_list()
+
+    dates = pd.to_datetime(df["Month"], errors="coerce").dropna()
+    if dates.empty:
+        return _gen_fy_list()
+
+    def to_fy(d):
+        if d.month >= 4:
+            return f"FY {d.year}-{str(d.year + 1)[2:]}"
+        else:
+            return f"FY {d.year - 1}-{str(d.year)[2:]}"
+
+    fys = sorted(set(dates.apply(to_fy)), reverse=True)
+    return fys if fys else _gen_fy_list()
 
 
 def _fy_range(fy_str):
@@ -361,9 +382,6 @@ def render_ageing_tab(dsp_df, ssp_df):
             horizontal=True, label_visibility="collapsed", key="ageing_view_radio",
         )
 
-        fy_list = _gen_fy_list()
-        fc1, fc2, fc3, fc4 = st.columns([1.2, 1, 1, 1.5])
-
         is_ar = "AR" in view
         src = (dsp_df if is_ar else ssp_df)
         if src is None: src = pd.DataFrame()
@@ -373,6 +391,11 @@ def render_ageing_tab(dsp_df, ssp_df):
         src["_mdt"] = pd.to_datetime(
             src["Month"] if "Month" in src.columns else pd.Series(dtype=str),
             errors="coerce")
+
+        # FY list derived from actual data in the selected source
+        fy_list = _get_fy_from_data(src)
+
+        fc1, fc2, fc3, fc4 = st.columns([1.2, 1, 1, 1.5])
 
         with fc1:
             sel_fy = st.selectbox("Financial Year", ["All"] + fy_list, key="age_fy")
