@@ -545,3 +545,55 @@ function rebind(P){
 </body></html>"""
 
     components.html(html, height=0, scrolling=False)
+
+    # ── Direct mobile hamburger — rendered in Streamlit DOM, no iframe needed ──
+    # More reliable than JS injection which can fail in some browser/CDN configs.
+    sw = int(st.session_state.get("_pak_screen_w") or 1280)
+    if sw < 768:
+        st.markdown("""
+<style>
+#_pak_ham_btn {
+    position:fixed; top:10px; left:10px; z-index:2147483647;
+    width:42px; height:42px;
+    background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);
+    border-radius:9px; border:none; cursor:pointer;
+    font-size:22px; color:#fff; line-height:1;
+    display:flex !important; align-items:center; justify-content:center;
+    box-shadow:0 3px 14px rgba(0,118,206,.55);
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    transition:transform .14s;
+}
+#_pak_ham_btn:active { transform:scale(0.91); }
+#_pak_bd_direct {
+    display:none; position:fixed; inset:0; z-index:2147483646;
+    background:rgba(0,0,0,.52);
+    -webkit-tap-highlight-color:transparent;
+}
+</style>
+<button id="_pak_ham_btn" onclick="(function(){
+    var sb = document.getElementById('pak-sb');
+    var bd = document.getElementById('_pak_bd_direct');
+    if(!sb) return;
+    var open = sb.classList.toggle('pak-mob-open');
+    if(bd) bd.style.display = open ? 'block' : 'none';
+})();">&#9776;</button>
+<div id="_pak_bd_direct" onclick="(function(){
+    var sb = document.getElementById('pak-sb');
+    if(sb) sb.classList.remove('pak-mob-open');
+    this.style.display = 'none';
+}).call(this);"></div>
+<script>
+/* Also fix subnav z-index on mobile so they render above charts */
+(function(){
+    if(window.innerWidth > 767) return;
+    function fixZ(){
+        ['dash-sidenav','inv-sidenav'].forEach(function(id){
+            var el = document.getElementById(id);
+            if(el) el.style.setProperty('z-index','2147483645','important');
+        });
+    }
+    fixZ();
+    new MutationObserver(fixZ).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+""", unsafe_allow_html=True)
