@@ -583,17 +583,53 @@ function rebind(P){
     this.style.display = 'none';
 }).call(this);"></div>
 <script>
-/* Also fix subnav z-index on mobile so they render above charts */
+/* Mobile subnav tap-to-open/close for BOTH dashboard and invoice subnavs.
+   Runs in the main Streamlit document — no iframe cross-origin issues. */
 (function(){
     if(window.innerWidth > 767) return;
-    function fixZ(){
-        ['dash-sidenav','inv-sidenav'].forEach(function(id){
-            var el = document.getElementById(id);
-            if(el) el.style.setProperty('z-index','2147483645','important');
-        });
+
+    /* Generic toggle: tap handle → open panel, tap anywhere else → close */
+    function bindSubnav(navId, openClass){
+        function getNav(){ return document.getElementById(navId); }
+
+        /* Tap handle → toggle open class */
+        document.addEventListener('click', function(e){
+            var nav = getNav(); if(!nav) return;
+            var handle = nav.querySelector
+                ? nav.querySelector('.snav-handle, .inv-snav-handle') : null;
+            if(handle && (handle === e.target || handle.contains(e.target))){
+                nav.classList.toggle(openClass);
+                e.stopPropagation();
+                return;
+            }
+            /* Tap nav button inside panel → close after click propagates */
+            var btn = e.target.closest && e.target.closest(
+                '.snav-btn, .inv-snav-btn, .snav-dot, .inv-snav-dot');
+            if(btn && nav.contains(btn)){
+                setTimeout(function(){ nav.classList.remove(openClass); }, 150);
+                return;
+            }
+            /* Tap OUTSIDE the nav → close */
+            if(!nav.contains(e.target)){
+                nav.classList.remove(openClass);
+            }
+        }, true);  /* capture phase so it fires before child handlers */
     }
-    fixZ();
-    new MutationObserver(fixZ).observe(document.body,{childList:true,subtree:true});
+
+    /* Use MutationObserver to bind as soon as each subnav is injected */
+    var bound = {};
+    function tryBind(){
+        if(!bound['dash'] && document.getElementById('dash-sidenav')){
+            bindSubnav('dash-sidenav', 'dash-mob-open');
+            bound['dash'] = true;
+        }
+        if(!bound['inv'] && document.getElementById('inv-sidenav')){
+            bindSubnav('inv-sidenav', 'inv-mob-open');
+            bound['inv'] = true;
+        }
+    }
+    tryBind();
+    new MutationObserver(tryBind).observe(document.body, {childList:true, subtree:true});
 })();
 </script>
 """, unsafe_allow_html=True)
