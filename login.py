@@ -285,18 +285,25 @@ def login_screen():
         border-color:#0076CE!important;box-shadow:0 0 0 3px rgba(0,118,206,.12)!important;
         background:#ffffff!important;}}
 
-    /* FIX: password double-border — style outer container only, strip browser border from inner input */
+    /* Text / password input — single clean border via BaseWeb container */
     [data-testid="stMain"] .stTextInput>div>div{{
         border-radius:10px!important;border:1.5px solid #e5e7eb!important;
         background:#f9fafb!important;min-height:48px!important;
+        box-shadow:none!important;
         transition:border-color .2s,box-shadow .2s!important;}}
     [data-testid="stMain"] .stTextInput>div>div:focus-within{{
         border-color:#0076CE!important;box-shadow:0 0 0 3px rgba(0,118,206,.12)!important;
         background:#ffffff!important;}}
+    /* Strip every inner-div border so BaseWeb doesn't render a second ring */
+    [data-testid="stMain"] .stTextInput>div>div>div{{
+        border:none!important;outline:none!important;
+        box-shadow:none!important;background:transparent!important;}}
     [data-testid="stMain"] .stTextInput input{{
         font-size:14px!important;color:#111827!important;
         border:none!important;outline:none!important;
         box-shadow:none!important;background:transparent!important;}}
+    [data-testid="stMain"] .stTextInput input:focus{{
+        border:none!important;outline:none!important;box-shadow:none!important;}}
     [data-testid="stMain"] .stTextInput input::placeholder{{color:#c4c9d4!important;}}
 
     [data-testid="stMain"] .stSelectbox,[data-testid="stMain"] .stTextInput{{padding:0 52px!important;}}
