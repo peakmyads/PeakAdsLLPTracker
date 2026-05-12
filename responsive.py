@@ -367,9 +367,55 @@ div[data-testid="stMetricValue"] {
     font-size : clamp(14px, 1.4vw, 28px) !important;
 }
 
-/* KPI container cards */
-.kpi-container {
-    padding : var(--pak-card-pad) !important;
+/* ═══════════════════════════════════════════════════════════════
+   KPI CARDS — uniform height, responsive font
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Force all KPI columns in a row to stretch to equal height */
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card) {
+    align-items: stretch !important;
+}
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+    > [data-testid="stVerticalBlockBorderWrapper"] {
+    display       : flex !important;
+    flex-direction: column !important;
+}
+[data-testid="stHorizontalBlock"]:has(.pak-kpi-card)
+    > [data-testid="stVerticalBlockBorderWrapper"]
+    > div {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.pak-kpi-card {
+    padding       : clamp(10px, 1.2vw, 20px) clamp(10px, 1.4vw, 20px);
+    border-radius : 14px;
+    box-shadow    : 0 6px 20px rgba(0,0,0,0.22);
+    margin-bottom : 8px;
+    height        : 100%;
+    min-height    : 88px;
+    display       : flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing    : border-box;
+}
+.pak-kpi-title {
+    font-size     : clamp(9px, 0.75vw, 12px);
+    font-weight   : 700;
+    color         : #FFEF00;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    line-height   : 1.3;
+}
+.pak-kpi-value {
+    font-size     : clamp(15px, 1.6vw, 28px);
+    font-weight   : 900;
+    color         : #fff;
+    margin-top    : 4px;
+    letter-spacing: -0.5px;
+    line-height   : 1.15;
+    word-break    : break-all;
 }
 
 /* AgGrid cell text — scales with viewport */
