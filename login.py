@@ -317,6 +317,12 @@ def login_screen():
         box-shadow:none!important;background:transparent!important;}}
     [data-testid="stMain"] [data-baseweb="input"] input::placeholder{{color:#c4c9d4!important;}}
 
+    /* Hide "Press Enter to apply" hint */
+    [data-testid="stMain"] .stTextInput small,
+    [data-testid="stMain"] .stTextInput [data-testid="InputInstructions"],
+    [data-testid="stMain"] [data-baseweb="input"] small{{
+        display:none!important;}}
+
     [data-testid="stMain"] .stSelectbox,[data-testid="stMain"] .stTextInput{{padding:0 52px!important;}}
     [data-testid="stMain"] .stButton{{padding:0 52px!important;}}
     [data-testid="stMain"] .stButton>button{{
