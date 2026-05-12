@@ -368,7 +368,7 @@ function boot(){
   injectHTML(P);
   injectMobileUI(P);
   hideTabBar(P);
-  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
+  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 300);
   laterDo(function(){ hideTabBar(P); }, 1200);
 }
 
@@ -395,6 +395,42 @@ function injectMobileUI(P){
     bd.classList.toggle('pak-mob-open', open);
   });
   P.body.insertBefore(btn, P.body.firstChild);
+}
+
+/* ── mobile tap-to-open for dashboard/invoice subnavs ── */
+/* Replaces CSS :hover (which sticks on touch) with an intentional tap toggle. */
+function bindMobileSubnavs(P){
+  if(P.innerWidth > 767) return;
+
+  function setupSubnav(navId, openClass, handleSel, btnSel){
+    var nav = P.getElementById(navId);
+    if(!nav || nav._subMobBound) return;
+    nav._subMobBound = true;
+
+    /* tap handle → open panel */
+    var handle = nav.querySelector(handleSel);
+    if(handle){
+      handle.addEventListener('click', function(e){
+        nav.classList.toggle(openClass);
+        e.stopPropagation();
+      });
+    }
+
+    /* tap nav button → navigate then close panel */
+    nav.querySelectorAll(btnSel).forEach(function(btn){
+      btn.addEventListener('click', function(){
+        setTimeout(function(){ nav.classList.remove(openClass); }, 150);
+      });
+    });
+
+    /* tap anywhere outside → close panel */
+    P.addEventListener('click', function(e){
+      if(!nav.contains(e.target)) nav.classList.remove(openClass);
+    }, true);
+  }
+
+  setupSubnav('dash-sidenav', 'dash-mob-open', '.snav-handle', '.snav-btn, .snav-dot');
+  setupSubnav('inv-sidenav',  'inv-mob-open',  '.inv-snav-handle', '.inv-snav-btn, .inv-snav-dot');
 }
 
 /* ── inject CSS into parent <head> ── */
@@ -536,8 +572,8 @@ function bindAll(P){
 
 function rebind(P){
   cancelPending();
-  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
-  laterDo(function(){ bindAll(P); hideTabBar(P); }, 700);
+  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 200);
+  laterDo(function(){ bindAll(P); bindMobileSubnavs(P); hideTabBar(P); }, 700);
 }
 
 })();
@@ -571,65 +607,15 @@ function rebind(P){
 }
 </style>
 <button id="_pak_ham_btn" onclick="(function(){
-    var sb = document.getElementById('pak-sb');
-    var bd = document.getElementById('_pak_bd_direct');
-    if(!sb) return;
-    var open = sb.classList.toggle('pak-mob-open');
-    if(bd) bd.style.display = open ? 'block' : 'none';
+    var sb=document.getElementById('pak-sb');
+    var bd=document.getElementById('_pak_bd_direct');
+    if(!sb)return;
+    var open=sb.classList.toggle('pak-mob-open');
+    if(bd)bd.style.display=open?'block':'none';
 })();">&#9776;</button>
 <div id="_pak_bd_direct" onclick="(function(){
-    var sb = document.getElementById('pak-sb');
-    if(sb) sb.classList.remove('pak-mob-open');
-    this.style.display = 'none';
+    var sb=document.getElementById('pak-sb');
+    if(sb)sb.classList.remove('pak-mob-open');
+    this.style.display='none';
 }).call(this);"></div>
-<script>
-/* Mobile subnav tap-to-open/close for BOTH dashboard and invoice subnavs.
-   Runs in the main Streamlit document — no iframe cross-origin issues. */
-(function(){
-    if(window.innerWidth > 767) return;
-
-    /* Generic toggle: tap handle → open panel, tap anywhere else → close */
-    function bindSubnav(navId, openClass){
-        function getNav(){ return document.getElementById(navId); }
-
-        /* Tap handle → toggle open class */
-        document.addEventListener('click', function(e){
-            var nav = getNav(); if(!nav) return;
-            var handle = nav.querySelector
-                ? nav.querySelector('.snav-handle, .inv-snav-handle') : null;
-            if(handle && (handle === e.target || handle.contains(e.target))){
-                nav.classList.toggle(openClass);
-                e.stopPropagation();
-                return;
-            }
-            /* Tap nav button inside panel → close after click propagates */
-            var btn = e.target.closest && e.target.closest(
-                '.snav-btn, .inv-snav-btn, .snav-dot, .inv-snav-dot');
-            if(btn && nav.contains(btn)){
-                setTimeout(function(){ nav.classList.remove(openClass); }, 150);
-                return;
-            }
-            /* Tap OUTSIDE the nav → close */
-            if(!nav.contains(e.target)){
-                nav.classList.remove(openClass);
-            }
-        }, true);  /* capture phase so it fires before child handlers */
-    }
-
-    /* Use MutationObserver to bind as soon as each subnav is injected */
-    var bound = {};
-    function tryBind(){
-        if(!bound['dash'] && document.getElementById('dash-sidenav')){
-            bindSubnav('dash-sidenav', 'dash-mob-open');
-            bound['dash'] = true;
-        }
-        if(!bound['inv'] && document.getElementById('inv-sidenav')){
-            bindSubnav('inv-sidenav', 'inv-mob-open');
-            bound['inv'] = true;
-        }
-    }
-    tryBind();
-    new MutationObserver(tryBind).observe(document.body, {childList:true, subtree:true});
-})();
-</script>
 """, unsafe_allow_html=True)
