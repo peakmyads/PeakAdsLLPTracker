@@ -572,6 +572,39 @@ div[data-testid="stMetricValue"] {
         padding-top  : 4px  !important;
     }
 
+    /* ── Navbar z-index: always on top of everything on mobile ── */
+    /* Max possible z-index so charts, cards, modals can't stack above */
+    #pak-mob-toggle {
+        z-index: 2147483647 !important;
+    }
+    #pak-sb.pak-mob-open {
+        z-index: 2147483647 !important;
+    }
+    #pak-mob-backdrop,
+    #pak-mob-backdrop.pak-mob-open {
+        z-index: 2147483646 !important;
+    }
+
+    /* ── Dashboard & Invoice right-side subnavs: hide on mobile ──
+       The left hamburger navbar covers all tab navigation on mobile.
+       These fixed right-side hovers are unusable on touch and overlap content. */
+    #dash-sidenav,
+    #inv-sidenav {
+        display: none !important;
+    }
+
+    /* ── Plotly charts: don't create stacking context above navbar ── */
+    .js-plotly-plot {
+        isolation : auto !important;
+        z-index   : auto !important;
+        position  : relative !important;
+    }
+
+    /* ── KPI cards: no stacking context that traps fixed elements ── */
+    .pak-kpi-card {
+        isolation : auto !important;
+    }
+
     /* AgGrid — allow horizontal scroll on mobile */
     .ag-root-wrapper {
         overflow-x : auto !important;
