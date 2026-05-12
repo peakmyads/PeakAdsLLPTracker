@@ -5492,13 +5492,33 @@ if "P&L" in tabs:
 
                 if _pnl_view_cols:
                     df_pnl_display = df_pnl[[c for c in _pnl_view_cols if c in df_pnl.columns]]
-                    # Rebuild compact grid opts (3 cols) with same styling
+                    # Rebuild compact grid opts (3 cols) — mirror CC compact logic exactly
                     _gb3 = GridOptionsBuilder.from_dataframe(df_pnl_display)
                     _gb3.configure_column("Particulars", pinned="left", minWidth=160)
                     _gb3.configure_column("Currency",    pinned="left", minWidth=70)
                     _gb3.configure_default_column(resizable=True, sortable=False)
                     pnl_grid_opts = _gb3.build()
-                    pnl_grid_opts["suppressHorizontalScroll"] = False
+                    # sizeColumnsToFit: stretch 3 cols to fill screen width
+                    _pnl_compact_js = JsCode("""
+                    function(params){
+                        setTimeout(function(){
+                            try { params.api.sizeColumnsToFit(); } catch(e) {}
+                        }, 200);
+                    }
+                    """)
+                    pnl_grid_opts["onGridReady"]         = _pnl_compact_js
+                    pnl_grid_opts["onFirstDataRendered"] = _pnl_compact_js
+                    pnl_grid_opts["suppressHorizontalScroll"] = True
+                    # Apply flex so columns distribute space proportionally
+                    for _cd in pnl_grid_opts.get("columnDefs", []):
+                        _cd.pop("width", None)
+                        _f = _cd.get("field","") or _cd.get("headerName","")
+                        if _f in ("Particulars","Description","Category"):
+                            _cd["flex"] = 2; _cd["minWidth"] = 160
+                        elif _f == "Currency":
+                            _cd["flex"] = 1; _cd["minWidth"] = 80
+                        else:
+                            _cd["flex"] = 2; _cd["minWidth"] = 120
                     # Preserve same row colouring
                     pnl_grid_opts["getRowStyle"] = pnl_grid_opts_rs
                 else:
@@ -5509,9 +5529,9 @@ if "P&L" in tabs:
                     gridOptions=pnl_grid_opts,
                     allow_unsafe_jscode=True,
                     height=sc.grid_height(650),
-                    fit_columns_on_grid_load=(pnl_view == "📊 Annual/FY Total Only"),
+                    fit_columns_on_grid_load=False,
                     custom_css=pnl_custom_css,
-                    key="pnl_grid"
+                    key=f"pnl_grid_{pnl_view}_{pnl_sel_month or ''}"
                 )
 
                 
