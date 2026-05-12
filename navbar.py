@@ -283,47 +283,6 @@ def render_navbar() -> None:
         "opacity:0;transform:translateX(-6px);"
         "transition:opacity .20s ease .05s,transform .20s ease .05s;}"
         "#pak-sb:hover .psb-ltxt{opacity:1;transform:translateX(0);}"
-
-        # pak-inv-subs hidden globally — mobile media query reveals it
-        "#pak-inv-subs{display:none!important;}"
-        ".pak-sub-item{display:none!important;}"
-        # ── pak-mob-open: mirrors :hover expanded state for touch ──────────
-        "#pak-sb.pak-mob-open .psb-lbl{opacity:1!important;transform:translateX(0)!important;pointer-events:all!important;}"
-        "#pak-sb.pak-mob-open .psb-icon{opacity:0!important;width:0!important;font-size:0!important;overflow:hidden!important;}"
-        "#pak-sb.pak-mob-open .psb-brand{opacity:1!important;max-height:24px!important;}"
-        "#pak-sb.pak-mob-open .psb-uname{opacity:1!important;transform:translateX(0)!important;}"
-        "#pak-sb.pak-mob-open .psb-ltxt{opacity:1!important;transform:translateX(0)!important;}"
-
-        # ── Mobile media query ───────────────────────────────────────────────
-        "@media(max-width:767px){"
-        "#pak-mob-toggle{"
-        "position:fixed;top:10px;left:10px;z-index:2147483647;"
-        "width:40px;height:40px;"
-        "background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);"
-        "border-radius:9px;border:none;cursor:pointer;"
-        "font-size:20px;color:#fff;"
-        "display:flex;align-items:center;justify-content:center;"
-        "box-shadow:0 3px 14px rgba(0,118,206,0.50);"
-        "transition:transform .14s,background .18s;"
-        "-webkit-tap-highlight-color:transparent;"
-        "touch-action:manipulation;}"
-        "#pak-mob-toggle:active{transform:scale(0.91);}"
-        "#pak-mob-backdrop{"
-        "position:fixed;inset:0;z-index:2147483646;"
-        "background:rgba(0,0,0,0.52);display:none;"
-        "-webkit-tap-highlight-color:transparent;}"
-        "#pak-mob-backdrop.pak-mob-open{display:block!important;}"
-        "#pak-sb{width:0!important;transition:width .28s cubic-bezier(.4,0,.2,1)!important;}"
-        "#pak-sb.pak-mob-open{width:190px!important;z-index:2147483647!important;}"
-        "[data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
-        "body:has(#pak-sb:hover) [data-testid='stMain']{margin-left:0!important;width:100vw!important;max-width:100vw!important;}"
-        "#pak-inv-subs{flex-direction:column;gap:1px;margin:2px 0 4px 4px;padding:3px 0;border-left:2px solid rgba(0,118,206,0.30);}"
-        "#pak-inv-subs.pak-inv-open{display:flex!important;}"
-        ".pak-sub-item{display:flex!important;align-items:center;gap:7px;padding:8px 8px 8px 14px;color:rgba(180,210,255,0.80);font-size:11px;font-weight:500;cursor:pointer;border-radius:0 8px 8px 0;transition:background .15s,color .15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}"
-        ".pak-sub-item.pak-sub-active{background:rgba(0,118,206,0.35)!important;color:#fff!important;}"
-        ".pak-sub-icon{font-size:13px;flex-shrink:0;}"
-        ".pak-sub-lbl{font-size:11px;}"
-        "}"
     )
 
     # ── 4. IFRAME HTML + JS ──────────────────────────────────────────────────
@@ -346,28 +305,9 @@ var gaps=[0,100,300,700,1500,3000], gi=0;
   setTimeout(function(){ gi++; boot(); attempt(); }, gaps[gi]);
 })();
 
-/* ── cancel stale timers to prevent pile-up across reruns ── */
-function cancelPending(){
-  if(window._pakNavT){ window._pakNavT.forEach(function(t){ clearTimeout(t); }); }
-  window._pakNavT=[];
-}
-function laterDo(fn,ms){
-  if(!window._pakNavT) window._pakNavT=[];
-  window._pakNavT.push(setTimeout(fn,ms));
-}
-
-/* ── close mobile nav (safe to call anytime) ── */
-function closeMobileNav(P){
-  var sb=P.getElementById('pak-sb');
-  var bd=P.getElementById('pak-mob-backdrop');
-  if(sb) sb.classList.remove('pak-mob-open');
-  if(bd) bd.classList.remove('pak-mob-open');
-}
-
 function boot(){
   var P=window.parent.document;
   if(!P||!P.body) return;
-  cancelPending();
   /* Remove login-page left panel if it survived from before login */
   ['pak-login-left','pak-login-left-css'].forEach(function(id){
     var e=P.getElementById(id); if(e) e.remove();
@@ -375,85 +315,9 @@ function boot(){
   if(P.getElementById('pak-sb')){ rebind(P); return; }
   injectCSS(P);
   injectHTML(P);
-  injectMobileUI(P);
-  injectInvSubs(P);
   hideTabBar(P);
-  laterDo(function(){ bindAll(P); hideTabBar(P); }, 300);
-  laterDo(function(){ syncInvSubs(P); }, 500);
-  laterDo(function(){ hideTabBar(P); }, 1200);
-}
-
-/* ── inject hamburger button + backdrop for mobile ── */
-function injectMobileUI(P){
-  if(P.getElementById('pak-mob-toggle')) return;
-
-  var bd=P.createElement('div');
-  bd.id='pak-mob-backdrop';
-  bd.addEventListener('click',function(){
-    closeMobileNav(P);
-  });
-  P.body.insertBefore(bd, P.body.firstChild);
-
-  var btn=P.createElement('button');
-  btn.id='pak-mob-toggle';
-  btn.innerHTML='&#9776;';
-  btn.setAttribute('aria-label','Open navigation');
-  btn.addEventListener('click',function(e){
-    e.stopPropagation();
-    var sb=P.getElementById('pak-sb');
-    if(!sb) return;
-    var open=sb.classList.toggle('pak-mob-open');
-    bd.classList.toggle('pak-mob-open', open);
-  });
-  P.body.insertBefore(btn, P.body.firstChild);
-
-  /* Watch #pak-sb for pak-mob-open being added from ANY source
-     (handles both the iframe toggle AND the direct #_pak_ham_btn onclick) */
-  var sbEl = P.getElementById('pak-sb');
-  if(sbEl){
-    new MutationObserver(function(){
-      if(sbEl.classList.contains('pak-mob-open')){
-        injectInvSubs(P);
-        setTimeout(function(){ syncInvSubs(P); }, 80);
-      }
-    }).observe(sbEl, {attributes:true, attributeFilter:['class']});
-  }
-}
-
-/* ── mobile tap-to-open for dashboard/invoice subnavs ── */
-/* Replaces CSS :hover (which sticks on touch) with an intentional tap toggle. */
-function bindMobileSubnavs(P){
-  if(P.innerWidth > 767) return;
-
-  function setupSubnav(navId, openClass, handleSel, btnSel){
-    var nav = P.getElementById(navId);
-    if(!nav || nav._subMobBound) return;
-    nav._subMobBound = true;
-
-    /* tap handle → open panel */
-    var handle = nav.querySelector(handleSel);
-    if(handle){
-      handle.addEventListener('click', function(e){
-        nav.classList.toggle(openClass);
-        e.stopPropagation();
-      });
-    }
-
-    /* tap nav button → navigate then close panel */
-    nav.querySelectorAll(btnSel).forEach(function(btn){
-      btn.addEventListener('click', function(){
-        setTimeout(function(){ nav.classList.remove(openClass); }, 150);
-      });
-    });
-
-    /* tap anywhere outside → close panel */
-    P.addEventListener('click', function(e){
-      if(!nav.contains(e.target)) nav.classList.remove(openClass);
-    }, true);
-  }
-
-  setupSubnav('dash-sidenav', 'dash-mob-open', '.snav-handle', '.snav-btn, .snav-dot');
-  setupSubnav('inv-sidenav',  'inv-mob-open',  '.inv-snav-handle', '.inv-snav-btn, .inv-snav-dot');
+  setTimeout(function(){ bindAll(P); hideTabBar(P); }, 300);
+  setTimeout(function(){ hideTabBar(P); }, 1200);
 }
 
 /* ── inject CSS into parent <head> ── */
@@ -519,87 +383,14 @@ function findTab(P,lbl){
   return null;
 }
 
-var INV_SUB_DEFS = [
-  ['📄 Create Invoice',  '📄', 'Create Invoice'],
-  ['📋 Invoice History', '📋', 'Invoice History'],
-  ['🔔 Send Reminder',   '🔔', 'Send Reminder'],
-  ['📊 DSP Statement',   '📊', 'DSP Statement'],
-  ['📑 GST Report',      '📑', 'GST Report']
-];
-
-/* ── inject invoice subtab list inside pak-sb (mobile only) ── */
-function injectInvSubs(P){
-  if(window.parent.innerWidth > 767) return;
-  if(P.getElementById('pak-inv-subs')) return;
-  var invItem = null;
-  P.querySelectorAll('.psb-item').forEach(function(el){
-    if((el.dataset.label||'').indexOf('Invoice')!==-1) invItem=el;
-  });
-  if(!invItem) return;
-  var subs = P.createElement('div');
-  subs.id = 'pak-inv-subs';
-  INV_SUB_DEFS.forEach(function(def){
-    var item = P.createElement('div');
-    item.className = 'pak-sub-item';
-    item.dataset.subLabel = def[0];
-    item.innerHTML = '<span class="pak-sub-icon">'+def[1]+'</span><span class="pak-sub-lbl">'+def[2]+'</span>';
-    item.addEventListener('click', function(e){
-      e.stopPropagation();
-      var found = false;
-      P.querySelectorAll('button[data-testid="stTab"]').forEach(function(t){
-        if(!found && (t.textContent||'').trim()===def[0].trim()){ t.click(); found=true; }
-      });
-      P.querySelectorAll('.pak-sub-item').forEach(function(s){
-        s.classList.toggle('pak-sub-active', s.dataset.subLabel===def[0]);
-      });
-      closeMobileNav(P);
-    });
-    subs.appendChild(item);
-  });
-  invItem.parentNode.insertBefore(subs, invItem.nextSibling);
-}
-
-/* ── show/hide subs + sync active sub-tab ── */
-function syncInvSubs(P){
-  if(window.parent.innerWidth > 767) return;
-  var subs = P.getElementById('pak-inv-subs');
-  if(!subs) return;
-  var invItem = null;
-  P.querySelectorAll('.psb-item').forEach(function(el){
-    if((el.dataset.label||'').indexOf('Invoice')!==-1) invItem=el;
-  });
-  var isInvActive = invItem && invItem.classList.contains('psb-active');
-  subs.classList.toggle('pak-inv-open', !!isInvActive);
-  if(isInvActive){
-    var subLabels = INV_SUB_DEFS.map(function(d){ return d[0]; });
-    var activeSubLbl = '';
-    P.querySelectorAll('button[data-testid="stTab"]').forEach(function(t){
-      if(t.getAttribute('aria-selected')==='true' &&
-         subLabels.indexOf((t.textContent||'').trim())!==-1){
-        activeSubLbl = (t.textContent||'').trim();
-      }
-    });
-    P.querySelectorAll('.pak-sub-item').forEach(function(s){
-      s.classList.toggle('pak-sub-active', s.dataset.subLabel===activeSubLbl);
-    });
-  }
-}
-
 /* ── sync active highlight ── */
 function syncActive(P){
-  /* use only the first stTabBar (main tabs) — avoids picking up inner Invoice tabs */
-  var mainBar = P.querySelector('[data-testid="stTabBar"]');
-  var btns = mainBar ? mainBar.querySelectorAll('button[data-testid="stTab"]') : [];
-  var lbl = '';
-  for(var i=0; i<btns.length; i++){
-    if(btns[i].getAttribute('aria-selected')==='true'){
-      lbl = (btns[i].textContent||'').trim(); break;
-    }
-  }
+  var sel=P.querySelector('button[data-testid="stTab"][aria-selected="true"]');
+  if(!sel) return;
+  var lbl=sel.innerText.trim();
   P.querySelectorAll('.psb-item').forEach(function(el){
     el.classList.toggle('psb-active', el.dataset.label===lbl);
   });
-  syncInvSubs(P);
 }
 
 /* ── logout: find the hidden Streamlit "Logout" button in st.sidebar ── */
@@ -610,9 +401,6 @@ function doLogout(P){
     if(all[i].id==='pak-logout') continue;
     if(all[i].innerText.trim()==='Logout'){
       all[i].click();
-      /* Force full page reload after logout so the browser clears its
-         WebSocket message-hash cache. Without this, the new session's
-         hashes don't match the browser's stale cache → ForwardMsg MISS. */
       setTimeout(function(){ window.location.reload(); }, 600);
       return;
     }
@@ -636,15 +424,13 @@ function bindAll(P){
   });
   P.querySelectorAll('.psb-item').forEach(function(el){
     el.addEventListener('click',function(){
-      /* close mobile nav FIRST before btn.click() triggers rerun */
-      closeMobileNav(P);
       var btn=findTab(P,this.dataset.label);
       if(btn){
+        btn.click();
         P.querySelectorAll('.psb-item').forEach(function(x){
           x.classList.remove('psb-active');
         });
         el.classList.add('psb-active');
-        setTimeout(function(){ btn.click(); }, 60);
       }
     });
   });
@@ -667,9 +453,9 @@ function bindAll(P){
 }
 
 function rebind(P){
-  cancelPending();
-  laterDo(function(){ bindAll(P); hideTabBar(P); }, 200);
-  laterDo(function(){ injectInvSubs(P); syncInvSubs(P); }, 400);
+  [200,600,1400].forEach(function(d){
+    setTimeout(function(){ bindAll(P); hideTabBar(P); }, d);
+  });
 }
 
 })();
@@ -677,41 +463,3 @@ function rebind(P){
 </body></html>"""
 
     components.html(html, height=0, scrolling=False)
-
-    # ── Direct mobile hamburger — rendered in Streamlit DOM, no iframe needed ──
-    # More reliable than JS injection which can fail in some browser/CDN configs.
-    sw = int(st.session_state.get("_pak_screen_w") or 1280)
-    if sw < 768:
-        st.markdown("""
-<style>
-#_pak_ham_btn {
-    position:fixed; top:10px; left:10px; z-index:2147483647;
-    width:42px; height:42px;
-    background:linear-gradient(135deg,#0076CE 0%,#003a80 100%);
-    border-radius:9px; border:none; cursor:pointer;
-    font-size:22px; color:#fff; line-height:1;
-    display:flex !important; align-items:center; justify-content:center;
-    box-shadow:0 3px 14px rgba(0,118,206,.55);
-    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
-    transition:transform .14s;
-}
-#_pak_ham_btn:active { transform:scale(0.91); }
-#_pak_bd_direct {
-    display:none; position:fixed; inset:0; z-index:2147483646;
-    background:rgba(0,0,0,.52);
-    -webkit-tap-highlight-color:transparent;
-}
-</style>
-<button id="_pak_ham_btn" onclick="(function(){
-    var sb=document.getElementById('pak-sb');
-    var bd=document.getElementById('_pak_bd_direct');
-    if(!sb)return;
-    var open=sb.classList.toggle('pak-mob-open');
-    if(bd)bd.style.display=open?'block':'none';
-})();">&#9776;</button>
-<div id="_pak_bd_direct" onclick="(function(){
-    var sb=document.getElementById('pak-sb');
-    if(sb)sb.classList.remove('pak-mob-open');
-    this.style.display='none';
-}).call(this);"></div>
-""", unsafe_allow_html=True)
