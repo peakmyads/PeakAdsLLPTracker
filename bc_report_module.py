@@ -50,10 +50,13 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode, DataRe
 # DB PATH
 # ═══════════════════════════════════════════════════════════════════════════
 
+# DB path: always use the directory of the main entry script (app.py),
+# NOT __file__ (bc_report_module.py) — both must point to the same tracker.db.
 if getattr(sys, "frozen", False):
     _BASE_DIR = os.path.dirname(sys.executable)
 else:
-    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    # sys.argv[0] = path to app.py (the running script) — same dir as tracker.db
+    _BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 
 _DB_PATH = os.path.join(_BASE_DIR, "tracker.db")
 
@@ -497,16 +500,33 @@ def _poll_device_code(cfg: dict, device_code: str, interval: int = 5) -> dict:
             "click Save All, then try again."
         )
 
+    client_secret = (cfg.get("client_secret") or "").strip()
+    # Determine if app is a public client (no client_secret in token request)
+    # or confidential. We auto-detect: try with secret first; if Azure returns
+    # AADSTS7000218 it means the app is registered as a public client — retry
+    # without the secret.
+    use_secret = bool(client_secret)
+
     deadline = time.time() + 300
     while time.time() < deadline:
         time.sleep(interval)
-        r = requests.post(url, data={
-            "grant_type":    "urn:ietf:params:oauth:grant-type:device_code",
-            "client_id":     cfg["client_id"],
-            "client_secret": cfg["client_secret"],  # required for confidential clients
-            "device_code":   device_code,
-        }, timeout=20)
+        post_data = {
+            "grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id":   cfg["client_id"],
+            "device_code": device_code,
+        }
+        if use_secret:
+            post_data["client_secret"] = client_secret
+
+        r = requests.post(url, data=post_data, timeout=20)
         body = r.json()
+
+        # AADSTS7000218 with secret present → app is public client, retry without
+        if (body.get("error_description","").find("AADSTS7000218") != -1
+                and use_secret):
+            use_secret = False
+            continue
+
         if "access_token" in body:
             return body
         err = body.get("error", "")
@@ -904,6 +924,7 @@ def _render_azure_config():
         "Enter your Azure App credentials and Microsoft account details below. "
         "Use <b>finance@peakmyads.onmicrosoft.com</b> as the sending account — "
         "it must be a member of all partner group chats."
+        f"<br><span style='color:#4dabf7;font-size:11px;'>📁 DB file: {_DB_PATH}</span>"
         "</div>",
         unsafe_allow_html=True,
     )
