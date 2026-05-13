@@ -1001,14 +1001,32 @@ def _render_azure_config():
                 st.rerun()
         else:
             if st.button("🔑 Authenticate with Microsoft", key="bc_dc_start"):
-                cfg_now = _load_azure_cfg()
-                missing_now = [k for k in ("tenant_id", "client_id", "client_secret")
-                               if not (cfg_now.get(k) or "").strip()]
+                # Read directly from the form widgets — NOT from DB
+                # This avoids any DB read failure causing empty client_secret
+                t_id  = (st.session_state.get("bc_az_tid")  or "").strip()
+                c_id  = (st.session_state.get("bc_az_cid")  or "").strip()
+                c_sec = (st.session_state.get("bc_az_csec") or "").strip()
+                missing_now = []
+                if not t_id:  missing_now.append("Tenant ID")
+                if not c_id:  missing_now.append("Client ID")
+                if not c_sec: missing_now.append("Client Secret")
                 if missing_now:
-                    st.error(f"❌ Save these fields first before authenticating: **{', '.join(missing_now)}**")
+                    st.error(
+                        f"❌ Fill in and **Save All** these fields first: "
+                        f"**{', '.join(missing_now)}**"
+                    )
                 else:
                     try:
-                        flow = _start_device_code_flow(cfg_now)
+                        cfg_for_flow = {
+                            "tenant_id":     t_id,
+                            "client_id":     c_id,
+                            "client_secret": c_sec,
+                        }
+                        flow = _start_device_code_flow(cfg_for_flow)
+                        # Store credentials alongside the flow so poll uses them
+                        flow["_tenant_id"]     = t_id
+                        flow["_client_id"]     = c_id
+                        flow["_client_secret"] = c_sec
                         st.session_state["bc_dc_flow"] = flow
                         st.rerun()
                     except Exception as ex:
@@ -1018,24 +1036,33 @@ def _render_azure_config():
         if has_refresh:
             st.success("✅ Microsoft account authenticated — refresh token stored. All sends use this.")
         elif dc_flow:
-            user_code = dc_flow.get("user_code", "")
+            user_code  = dc_flow.get("user_code", "")
             verify_url = dc_flow.get("verification_uri", "https://microsoft.com/devicelogin")
-            st.info(f"Open {verify_url} and enter code: {user_code} — then sign in with MFA, then click the button below.")
+            st.info(f"Open {verify_url} and enter code: **{user_code}** — sign in with MFA, then click the button below.")
             if st.button("✅ I've signed in — save my token", key="bc_dc_confirm"):
                 try:
-                    with st.spinner("Checking authentication…"):
-                        token_resp = _poll_device_code(
-                            _load_azure_cfg(),
-                            dc_flow["device_code"],
-                            interval=dc_flow.get("interval", 5),
-                        )
-                    if token_resp.get("refresh_token"):
-                        _save_refresh_token(token_resp["refresh_token"])
-                        st.session_state.pop("bc_dc_flow", None)
-                        st.success("✅ Authenticated! Refresh token saved — future sends are automatic.")
-                        st.rerun()
+                    # Use credentials stored in session_state — never re-read from DB here
+                    poll_cfg = {
+                        "tenant_id":     dc_flow.get("_tenant_id",     ""),
+                        "client_id":     dc_flow.get("_client_id",     ""),
+                        "client_secret": dc_flow.get("_client_secret", ""),
+                    }
+                    if not poll_cfg["client_secret"]:
+                        st.error("❌ Client Secret missing — restart the flow by clicking Authenticate again.")
                     else:
-                        st.error("No refresh token returned. Ensure 'offline_access' scope is allowed.")
+                        with st.spinner("Checking authentication…"):
+                            token_resp = _poll_device_code(
+                                poll_cfg,
+                                dc_flow["device_code"],
+                                interval=dc_flow.get("interval", 5),
+                            )
+                        if token_resp.get("refresh_token"):
+                            _save_refresh_token(token_resp["refresh_token"])
+                            st.session_state.pop("bc_dc_flow", None)
+                            st.success("✅ Authenticated! Refresh token saved — all future sends are automatic.")
+                            st.rerun()
+                        else:
+                            st.error("No refresh token returned. Ensure 'offline_access' scope is allowed.")
                 except Exception as ex:
                     st.error(f"❌ Authentication failed: {ex}")
 
