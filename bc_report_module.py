@@ -102,9 +102,10 @@ def init_bc_report_tables():
     """)
     # Migrate existing DBs — add missing columns to all tables
     migrations = [
-        ("bc_report",       "sent_at",   "ALTER TABLE bc_report ADD COLUMN sent_at TEXT"),
-        ("bc_azure_config", "username",  "ALTER TABLE bc_azure_config ADD COLUMN username TEXT DEFAULT ''"),
-        ("bc_azure_config", "password",  "ALTER TABLE bc_azure_config ADD COLUMN password TEXT DEFAULT ''"),
+        ("bc_report",       "sent_at",        "ALTER TABLE bc_report ADD COLUMN sent_at TEXT"),
+        ("bc_azure_config", "username",        "ALTER TABLE bc_azure_config ADD COLUMN username TEXT DEFAULT ''"),
+        ("bc_azure_config", "password",        "ALTER TABLE bc_azure_config ADD COLUMN password TEXT DEFAULT ''"),
+        ("bc_azure_config", "refresh_token",   "ALTER TABLE bc_azure_config ADD COLUMN refresh_token TEXT DEFAULT ''"),
     ]
     for table, col, sql in migrations:
         try:
@@ -277,7 +278,7 @@ def _load_azure_cfg() -> dict:
             )
         con.commit()
         row = con.execute(
-            "SELECT tenant_id, client_id, client_secret, username, password "
+            "SELECT tenant_id, client_id, client_secret, username, password, refresh_token "
             "FROM bc_azure_config WHERE id=1"
         ).fetchone()
     except Exception:
@@ -285,15 +286,16 @@ def _load_azure_cfg() -> dict:
     con.close()
     if row:
         return {
-            "tenant_id":     row[0], "client_id":  row[1],
-            "client_secret": row[2], "username":   row[3] or "",
-            "password":      row[4],
+            "tenant_id":     row[0] or "", "client_id":     row[1] or "",
+            "client_secret": row[2] or "", "username":      row[3] or "",
+            "password":      row[4] or "", "refresh_token": row[5] or "",
         }
     return {}
 
 
 def _save_azure_cfg(tid: str, cid: str, csec: str,
                     username: str = "", password: str = ""):
+    """Save credentials — does NOT touch refresh_token (preserved separately)."""
     con = _conn()
     con.execute("""
         INSERT INTO bc_azure_config
@@ -307,6 +309,20 @@ def _save_azure_cfg(tid: str, cid: str, csec: str,
             password=excluded.password
     """, (tid, cid, csec, username, password))
     con.commit()
+    con.close()
+
+
+def _save_refresh_token(token: str):
+    """Store (or clear) the refresh token obtained from Device Code Flow."""
+    con = _conn()
+    try:
+        con.execute(
+            "UPDATE bc_azure_config SET refresh_token=? WHERE id=1",
+            (token,)
+        )
+        con.commit()
+    except Exception:
+        pass
     con.close()
 
 
@@ -414,76 +430,164 @@ def _build_welcome_msg() -> str:
 # GRAPH API
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _azure_error(r) -> str:
+    """Parse Azure error response into a human-readable string."""
+    try:
+        b = r.json()
+        desc = b.get("error_description", r.text)
+        import re as _re
+        m = _re.search(r"AADSTS\d+", desc)
+        code = m.group(0) if m else b.get("error", "error")
+        return f"{code}: {desc}"
+    except Exception:
+        return r.text
+
+
+def _start_device_code_flow(cfg: dict) -> dict:
+    """
+    Phase 1 — request a device code.
+    Returns Azure response: {device_code, user_code, verification_uri,
+                              expires_in, interval, message}
+    """
+    url = (
+        f"https://login.microsoftonline.com/{cfg['tenant_id']}"
+        "/oauth2/v2.0/devicecode"
+    )
+    r = requests.post(url, data={
+        "client_id": cfg["client_id"],
+        "scope":     "https://graph.microsoft.com/.default offline_access",
+    }, timeout=20)
+    if not r.ok:
+        raise RuntimeError(f"Device code request failed: {_azure_error(r)}")
+    return r.json()
+
+
+def _poll_device_code(cfg: dict, device_code: str, interval: int = 5) -> dict:
+    """
+    Phase 2 — poll until the user completes sign-in in the browser.
+    Returns full token response (includes access_token + refresh_token).
+    Raises RuntimeError on permanent failure or timeout (5 min).
+    """
+    import time
+    url = (
+        f"https://login.microsoftonline.com/{cfg['tenant_id']}"
+        "/oauth2/v2.0/token"
+    )
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        time.sleep(interval)
+        r = requests.post(url, data={
+            "grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id":   cfg["client_id"],
+            "device_code": device_code,
+        }, timeout=20)
+        body = r.json()
+        if "access_token" in body:
+            return body
+        err = body.get("error", "")
+        if err == "authorization_pending":
+            continue
+        if err == "slow_down":
+            interval = min(interval + 5, 30)
+            continue
+        raise RuntimeError(body.get("error_description", err))
+    raise RuntimeError("Authentication timed out (5 min). Please try again.")
+
+
+def _use_refresh_token(cfg: dict) -> str:
+    """
+    Exchange stored refresh token for a fresh access token.
+    Raises RuntimeError if refresh token is expired/revoked.
+    """
+    url = (
+        f"https://login.microsoftonline.com/{cfg['tenant_id']}"
+        "/oauth2/v2.0/token"
+    )
+    r = requests.post(url, data={
+        "grant_type":    "refresh_token",
+        "client_id":     cfg["client_id"],
+        "client_secret": cfg["client_secret"],
+        "refresh_token": cfg["refresh_token"],
+        "scope":         "https://graph.microsoft.com/.default offline_access",
+    }, timeout=20)
+    if not r.ok:
+        raise RuntimeError(f"Refresh token failed: {_azure_error(r)}")
+    body = r.json()
+    # Azure may issue a new refresh token — store it
+    if body.get("refresh_token"):
+        _save_refresh_token(body["refresh_token"])
+    return body["access_token"]
+
+
 def _get_token(cfg: dict) -> str:
     """
-    Uses ROPC (delegated) when username+password are set — required for
-    /chats/{id}/messages which needs the sender to be a chat member.
-    Falls back to client_credentials for other Graph calls.
+    Token acquisition priority:
+      1. Refresh token  (Device Code Flow result — MFA-safe, recommended)
+      2. ROPC password  (legacy, fails if MFA is ON)
+      3. client_credentials (application flow, no user context)
 
-    Raises a descriptive RuntimeError with Azure's AADSTS error code and
-    description so the user knows exactly what to fix (MFA, bad secret,
-    ROPC disabled, wrong scope, etc.) instead of a raw HTTP 400.
+    Raises a descriptive RuntimeError with Azure's AADSTS code so the user
+    knows exactly what to fix instead of a raw HTTP 400.
     """
-    tenant_id = (cfg.get("tenant_id") or "").strip()
-    client_id = (cfg.get("client_id") or "").strip()
+    tenant_id     = (cfg.get("tenant_id")     or "").strip()
+    client_id     = (cfg.get("client_id")     or "").strip()
     client_secret = (cfg.get("client_secret") or "").strip()
-    username  = (cfg.get("username") or "").strip()
-    password  = (cfg.get("password") or "").strip()
+    refresh_token = (cfg.get("refresh_token") or "").strip()
+    username      = (cfg.get("username")      or "").strip()
+    password      = (cfg.get("password")      or "").strip()
 
     if not tenant_id or not client_id or not client_secret:
         raise RuntimeError(
             "Missing credentials — Tenant ID, Client ID and Client Secret are all required."
         )
 
-    url = (
-        f"https://login.microsoftonline.com/{tenant_id}"
-        "/oauth2/v2.0/token"
-    )
+    # ── Priority 1: Refresh token from Device Code Flow (MFA-safe) ───────────
+    if refresh_token:
+        try:
+            return _use_refresh_token(cfg)
+        except Exception as e:
+            # Expired/revoked — clear it and fall through
+            _save_refresh_token("")
+            # Re-raise with clear message so user knows to re-authenticate
+            raise RuntimeError(
+                f"Refresh token expired or revoked. "
+                f"Please use 'Authenticate with Microsoft' again. Detail: {e}"
+            )
 
+    # ── Priority 2: ROPC password flow (fails when MFA is ON) ────────────────
     if username and password:
-        # Delegated — ROPC flow: app acts as the signed-in user.
-        # Requires: MFA OFF, ROPC not blocked by Conditional Access,
-        # and Chat.ReadWrite Delegated permission on the App Registration.
-        data = {
+        url = (
+            f"https://login.microsoftonline.com/{tenant_id}"
+            "/oauth2/v2.0/token"
+        )
+        r = requests.post(url, data={
             "grant_type":    "password",
             "client_id":     client_id,
             "client_secret": client_secret,
             "username":      username,
             "password":      password,
             "scope":         "https://graph.microsoft.com/.default offline_access",
-        }
-        flow = "ROPC (delegated)"
-    else:
-        # Application — client_credentials.
-        # Requires Chat.ReadWrite.All APPLICATION permission + admin consent.
-        data = {
-            "grant_type":    "client_credentials",
-            "client_id":     client_id,
-            "client_secret": client_secret,
-            "scope":         "https://graph.microsoft.com/.default",
-        }
-        flow = "client_credentials (application)"
+        }, timeout=20)
+        if not r.ok:
+            raise RuntimeError(f"Azure token error [ROPC (delegated)] {_azure_error(r)}")
+        body = r.json()
+        if "access_token" not in body:
+            raise RuntimeError(f"No access_token in Azure ROPC response: {body}")
+        return body["access_token"]
 
-    r = requests.post(url, data=data, timeout=20)
-
+    # ── Priority 3: client_credentials (application, no user context) ─────────
+    url = (
+        f"https://login.microsoftonline.com/{tenant_id}"
+        "/oauth2/v2.0/token"
+    )
+    r = requests.post(url, data={
+        "grant_type":    "client_credentials",
+        "client_id":     client_id,
+        "client_secret": client_secret,
+        "scope":         "https://graph.microsoft.com/.default",
+    }, timeout=20)
     if not r.ok:
-        # Parse Azure's detailed error body before raising
-        try:
-            err_body = r.json()
-            aad_error = err_body.get("error", "unknown_error")
-            aad_desc  = err_body.get("error_description", r.text)
-            # Extract the AADSTS code for a cleaner one-liner
-            import re as _re
-            aadsts = _re.search(r"AADSTS\d+", aad_desc)
-            short   = aadsts.group(0) if aadsts else aad_error
-            raise RuntimeError(
-                f"Azure token error [{flow}] {short}: {aad_desc}"
-            )
-        except RuntimeError:
-            raise
-        except Exception:
-            r.raise_for_status()   # fallback if body isn't JSON
-
+        raise RuntimeError(f"Azure token error [client_credentials] {_azure_error(r)}")
     body = r.json()
     if "access_token" not in body:
         raise RuntimeError(f"No access_token in Azure response: {body}")
@@ -848,7 +952,68 @@ def _render_azure_config():
                 st.error("All 5 fields are required (Tenant ID, Client ID, "
                          "Client Secret, Username, Password).")
 
-    # Test connection button
+    # ── Device Code Flow (MFA-safe, recommended) ─────────────────────────────
+    st.markdown(
+        "<div style='background:rgba(0,118,206,0.10);border-left:4px solid #0076CE;"
+        "padding:10px 14px;border-radius:6px;margin:10px 0;font-size:13px;color:#003a6e;'>"
+        "🔑 <b>MFA accounts:</b> Use <b>Authenticate with Microsoft</b> below instead of "
+        "Username/Password. You sign in once in your browser (MFA included) and a refresh "
+        "token is stored — all future sends work silently without MFA prompts."
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    auth_cfg = _load_azure_cfg()
+    has_refresh = bool(auth_cfg.get("refresh_token", "").strip())
+    dc_flow = st.session_state.get("bc_dc_flow")  # holds phase-1 response
+
+    auth_c1, auth_c2 = st.columns([1, 3])
+    with auth_c1:
+        if has_refresh:
+            if st.button("🔄 Re-authenticate Microsoft", key="bc_dc_start"):
+                _save_refresh_token("")
+                st.session_state.pop("bc_dc_flow", None)
+                st.rerun()
+        else:
+            if st.button("🔑 Authenticate with Microsoft", key="bc_dc_start"):
+                cfg_now = _load_azure_cfg()
+                if not cfg_now.get("tenant_id") or not cfg_now.get("client_id"):
+                    st.error("Save Tenant ID and Client ID first.")
+                else:
+                    try:
+                        flow = _start_device_code_flow(cfg_now)
+                        st.session_state["bc_dc_flow"] = flow
+                        st.rerun()
+                    except Exception as ex:
+                        st.error(f"❌ Failed to start authentication: {ex}")
+
+    with auth_c2:
+        if has_refresh:
+            st.success("✅ Microsoft account authenticated — refresh token stored. All sends use this.")
+        elif dc_flow:
+            user_code = dc_flow.get("user_code", "")
+            verify_url = dc_flow.get("verification_uri", "https://microsoft.com/devicelogin")
+            st.info(f"Open {verify_url} and enter code: {user_code} — then sign in with MFA, then click the button below.")
+            if st.button("✅ I've signed in — save my token", key="bc_dc_confirm"):
+                try:
+                    with st.spinner("Checking authentication…"):
+                        token_resp = _poll_device_code(
+                            _load_azure_cfg(),
+                            dc_flow["device_code"],
+                            interval=dc_flow.get("interval", 5),
+                        )
+                    if token_resp.get("refresh_token"):
+                        _save_refresh_token(token_resp["refresh_token"])
+                        st.session_state.pop("bc_dc_flow", None)
+                        st.success("✅ Authenticated! Refresh token saved — future sends are automatic.")
+                        st.rerun()
+                    else:
+                        st.error("No refresh token returned. Ensure 'offline_access' scope is allowed.")
+                except Exception as ex:
+                    st.error(f"❌ Authentication failed: {ex}")
+
+    # ── Test connection ───────────────────────────────────────────────────────
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
     test_col, _ = st.columns([1, 4])
     with test_col:
         if st.button("🔗 Test Azure Connection", key="bc_az_test"):
@@ -858,35 +1023,24 @@ def _render_azure_config():
             if missing:
                 st.error(f"Save credentials first. Missing: {', '.join(missing)}")
             else:
-                has_ropc = bool(test_cfg.get("username","").strip()
-                                and test_cfg.get("password","").strip())
-                flow_label = "ROPC (delegated)" if has_ropc else "client_credentials"
+                has_rt    = bool(test_cfg.get("refresh_token","").strip())
+                has_ropc  = bool(test_cfg.get("username","").strip()
+                                 and test_cfg.get("password","").strip())
+                flow_label = ("Device Code / Refresh Token" if has_rt
+                              else "ROPC (delegated)" if has_ropc
+                              else "client_credentials")
                 try:
-                    with st.spinner(f"Testing Azure token via {flow_label}…"):
+                    with st.spinner(f"Testing via {flow_label}…"):
                         token = _get_token(test_cfg)
-                    if token:
-                        st.success(
-                            f"✅ Azure connection successful! "
-                            f"Token obtained via **{flow_label}**."
-                        )
-                        if not has_ropc:
-                            st.warning(
-                                "⚠️ Token acquired via **client_credentials** "
-                                "(no Username/Password set). "
-                                "Sending Teams messages requires ROPC flow — "
-                                "add your Microsoft account email and password above."
-                            )
+                    st.success(f"✅ Connected! Token obtained via **{flow_label}**.")
                 except Exception as ex:
                     st.error(f"❌ Connection failed: {ex}")
-                    st.info(
-                        "💡 Common causes:\n"
-                        "- **AADSTS7000215** — Client Secret is wrong or expired\n"
-                        "- **AADSTS50076 / 50079** — MFA is ON for this account "
-                        "(ROPC requires MFA disabled or excluded via Conditional Access)\n"
-                        "- **AADSTS700016** — App not found in this tenant "
-                        "(wrong Tenant ID or Client ID)\n"
-                        "- **AADSTS65001** — Admin consent not granted for the requested permission"
-                    )
+                    if "AADSTS50076" in str(ex) or "AADSTS50079" in str(ex):
+                        st.info(
+                            "💡 MFA is required on this account. "
+                            "Use **Authenticate with Microsoft** above — "
+                            "it handles MFA and stores a refresh token for silent future use."
+                        )
 
     st.markdown("---")
 
