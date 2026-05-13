@@ -478,9 +478,10 @@ def _poll_device_code(cfg: dict, device_code: str, interval: int = 5) -> dict:
     while time.time() < deadline:
         time.sleep(interval)
         r = requests.post(url, data={
-            "grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
-            "client_id":   cfg["client_id"],
-            "device_code": device_code,
+            "grant_type":    "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id":     cfg["client_id"],
+            "client_secret": cfg["client_secret"],  # required for confidential clients
+            "device_code":   device_code,
         }, timeout=20)
         body = r.json()
         if "access_token" in body:
