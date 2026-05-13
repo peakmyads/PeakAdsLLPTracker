@@ -542,25 +542,43 @@ def _poll_device_code(cfg: dict, device_code: str, interval: int = 5) -> dict:
 def _use_refresh_token(cfg: dict) -> str:
     """
     Exchange stored refresh token for a fresh access token.
-    Raises RuntimeError if refresh token is expired/revoked.
+    Auto-detects public vs confidential client:
+      - Confidential (has client_secret): send secret
+      - Public (AADSTS700025 returned):   retry without secret
     """
     url = (
         f"https://login.microsoftonline.com/{cfg['tenant_id']}"
         "/oauth2/v2.0/token"
     )
-    r = requests.post(url, data={
-        "grant_type":    "refresh_token",
-        "client_id":     cfg["client_id"],
-        "client_secret": cfg["client_secret"],
-        "refresh_token": cfg["refresh_token"],
-        "scope":         "https://graph.microsoft.com/.default offline_access",
-    }, timeout=20)
-    if not r.ok:
-        raise RuntimeError(f"Refresh token failed: {_azure_error(r)}")
-    body = r.json()
-    # Azure may issue a new refresh token — store it
-    if body.get("refresh_token"):
-        _save_refresh_token(body["refresh_token"])
+    client_secret = (cfg.get("client_secret") or "").strip()
+
+    # Try without secret first for public clients (avoids AADSTS700025).
+    # If Azure requires secret (confidential), it returns a clear error.
+    attempts = [False, True] if client_secret else [False]
+    last_err = ""
+    for include_secret in attempts:
+        post_data = {
+            "grant_type":    "refresh_token",
+            "client_id":     cfg["client_id"],
+            "refresh_token": cfg["refresh_token"],
+            "scope":         "https://graph.microsoft.com/.default offline_access",
+        }
+        if include_secret:
+            post_data["client_secret"] = client_secret
+
+        r = requests.post(url, data=post_data, timeout=20)
+        if r.ok:
+            body = r.json()
+            if body.get("refresh_token"):
+                _save_refresh_token(body["refresh_token"])
+            return body["access_token"]
+
+        last_err = _azure_error(r)
+        # If adding secret caused AADSTS700025 (public client), stop — no retry
+        if "AADSTS700025" in last_err and include_secret:
+            raise RuntimeError(f"Refresh token failed: {last_err}")
+
+    raise RuntimeError(f"Refresh token failed: {last_err}")
     return body["access_token"]
 
 
