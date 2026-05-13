@@ -419,36 +419,75 @@ def _get_token(cfg: dict) -> str:
     Uses ROPC (delegated) when username+password are set — required for
     /chats/{id}/messages which needs the sender to be a chat member.
     Falls back to client_credentials for other Graph calls.
+
+    Raises a descriptive RuntimeError with Azure's AADSTS error code and
+    description so the user knows exactly what to fix (MFA, bad secret,
+    ROPC disabled, wrong scope, etc.) instead of a raw HTTP 400.
     """
+    tenant_id = (cfg.get("tenant_id") or "").strip()
+    client_id = (cfg.get("client_id") or "").strip()
+    client_secret = (cfg.get("client_secret") or "").strip()
+    username  = (cfg.get("username") or "").strip()
+    password  = (cfg.get("password") or "").strip()
+
+    if not tenant_id or not client_id or not client_secret:
+        raise RuntimeError(
+            "Missing credentials — Tenant ID, Client ID and Client Secret are all required."
+        )
+
     url = (
-        f"https://login.microsoftonline.com/{cfg['tenant_id']}"
+        f"https://login.microsoftonline.com/{tenant_id}"
         "/oauth2/v2.0/token"
     )
-    username = (cfg.get("username") or "").strip()
-    password = (cfg.get("password") or "").strip()
 
     if username and password:
-        # Delegated — ROPC flow: app acts as the signed-in user
+        # Delegated — ROPC flow: app acts as the signed-in user.
+        # Requires: MFA OFF, ROPC not blocked by Conditional Access,
+        # and Chat.ReadWrite Delegated permission on the App Registration.
         data = {
             "grant_type":    "password",
-            "client_id":     cfg["client_id"],
-            "client_secret": cfg["client_secret"],
+            "client_id":     client_id,
+            "client_secret": client_secret,
             "username":      username,
             "password":      password,
-            "scope":         "https://graph.microsoft.com/Chat.ReadWrite offline_access",
+            "scope":         "https://graph.microsoft.com/.default offline_access",
         }
+        flow = "ROPC (delegated)"
     else:
-        # Application — client_credentials (only works if app is bot in chat)
+        # Application — client_credentials.
+        # Requires Chat.ReadWrite.All APPLICATION permission + admin consent.
         data = {
             "grant_type":    "client_credentials",
-            "client_id":     cfg["client_id"],
-            "client_secret": cfg["client_secret"],
+            "client_id":     client_id,
+            "client_secret": client_secret,
             "scope":         "https://graph.microsoft.com/.default",
         }
+        flow = "client_credentials (application)"
 
     r = requests.post(url, data=data, timeout=20)
-    r.raise_for_status()
-    return r.json()["access_token"]
+
+    if not r.ok:
+        # Parse Azure's detailed error body before raising
+        try:
+            err_body = r.json()
+            aad_error = err_body.get("error", "unknown_error")
+            aad_desc  = err_body.get("error_description", r.text)
+            # Extract the AADSTS code for a cleaner one-liner
+            import re as _re
+            aadsts = _re.search(r"AADSTS\d+", aad_desc)
+            short   = aadsts.group(0) if aadsts else aad_error
+            raise RuntimeError(
+                f"Azure token error [{flow}] {short}: {aad_desc}"
+            )
+        except RuntimeError:
+            raise
+        except Exception:
+            r.raise_for_status()   # fallback if body isn't JSON
+
+    body = r.json()
+    if "access_token" not in body:
+        raise RuntimeError(f"No access_token in Azure response: {body}")
+    return body["access_token"]
 
 
 def _send_graph_message(token: str, chat_id: str, html_body: str):
@@ -461,7 +500,16 @@ def _send_graph_message(token: str, chat_id: str, html_body: str):
         json={"body": {"contentType": "html", "content": html_body}},
         timeout=20,
     )
-    r.raise_for_status()
+    if not r.ok:
+        try:
+            err = r.json()
+            code    = err.get("error", {}).get("code", "")
+            message = err.get("error", {}).get("message", r.text)
+            raise RuntimeError(f"Graph API error [{r.status_code}] {code}: {message}")
+        except RuntimeError:
+            raise
+        except Exception:
+            r.raise_for_status()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -805,16 +853,40 @@ def _render_azure_config():
     with test_col:
         if st.button("🔗 Test Azure Connection", key="bc_az_test"):
             test_cfg = _load_azure_cfg()
-            if not all([test_cfg.get("tenant_id"), test_cfg.get("client_id"),
-                        test_cfg.get("client_secret")]):
-                st.error("Save credentials first.")
+            missing = [k for k in ("tenant_id","client_id","client_secret")
+                       if not test_cfg.get(k,"").strip()]
+            if missing:
+                st.error(f"Save credentials first. Missing: {', '.join(missing)}")
             else:
+                has_ropc = bool(test_cfg.get("username","").strip()
+                                and test_cfg.get("password","").strip())
+                flow_label = "ROPC (delegated)" if has_ropc else "client_credentials"
                 try:
-                    token = _get_token(test_cfg)
+                    with st.spinner(f"Testing Azure token via {flow_label}…"):
+                        token = _get_token(test_cfg)
                     if token:
-                        st.success("✅ Azure connection successful! Token obtained.")
+                        st.success(
+                            f"✅ Azure connection successful! "
+                            f"Token obtained via **{flow_label}**."
+                        )
+                        if not has_ropc:
+                            st.warning(
+                                "⚠️ Token acquired via **client_credentials** "
+                                "(no Username/Password set). "
+                                "Sending Teams messages requires ROPC flow — "
+                                "add your Microsoft account email and password above."
+                            )
                 except Exception as ex:
                     st.error(f"❌ Connection failed: {ex}")
+                    st.info(
+                        "💡 Common causes:\n"
+                        "- **AADSTS7000215** — Client Secret is wrong or expired\n"
+                        "- **AADSTS50076 / 50079** — MFA is ON for this account "
+                        "(ROPC requires MFA disabled or excluded via Conditional Access)\n"
+                        "- **AADSTS700016** — App not found in this tenant "
+                        "(wrong Tenant ID or Client ID)\n"
+                        "- **AADSTS65001** — Admin consent not granted for the requested permission"
+                    )
 
     st.markdown("---")
 
