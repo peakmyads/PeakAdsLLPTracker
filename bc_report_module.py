@@ -978,8 +978,10 @@ def _render_azure_config():
         else:
             if st.button("🔑 Authenticate with Microsoft", key="bc_dc_start"):
                 cfg_now = _load_azure_cfg()
-                if not cfg_now.get("tenant_id") or not cfg_now.get("client_id"):
-                    st.error("Save Tenant ID and Client ID first.")
+                missing_now = [k for k in ("tenant_id", "client_id", "client_secret")
+                               if not (cfg_now.get(k) or "").strip()]
+                if missing_now:
+                    st.error(f"❌ Save these fields first before authenticating: **{', '.join(missing_now)}**")
                 else:
                     try:
                         flow = _start_device_code_flow(cfg_now)
