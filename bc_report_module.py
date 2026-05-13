@@ -261,36 +261,51 @@ def _push_to_master(rows: list) -> tuple:
 # ── Azure / Teams config ───────────────────────────────────────────────────
 
 def _load_azure_cfg() -> dict:
+    """
+    Load Azure credentials from DB.
+    Inline-migrates any missing columns so SELECT never fails on old DBs.
+    """
     con = _conn()
     try:
-        # Migrate: ensure username + password columns exist
-        # (handles old DBs that may have ms_password or missing columns)
+        # Ensure ALL expected columns exist before SELECT (handles old DBs)
         cols = [r[1] for r in con.execute(
             "PRAGMA table_info(bc_azure_config)"
         ).fetchall()]
-        if "username" not in cols:
-            con.execute(
-                "ALTER TABLE bc_azure_config ADD COLUMN username TEXT DEFAULT ''"
-            )
-        if "password" not in cols:
-            con.execute(
-                "ALTER TABLE bc_azure_config ADD COLUMN password TEXT DEFAULT ''"
-            )
-        con.commit()
+        needed = {
+            "username":      "ALTER TABLE bc_azure_config ADD COLUMN username TEXT DEFAULT ''",
+            "password":      "ALTER TABLE bc_azure_config ADD COLUMN password TEXT DEFAULT ''",
+            "refresh_token": "ALTER TABLE bc_azure_config ADD COLUMN refresh_token TEXT DEFAULT ''",
+        }
+        changed = False
+        for col, sql in needed.items():
+            if col not in cols:
+                con.execute(sql)
+                changed = True
+        if changed:
+            con.commit()
+
+        # Read row — all columns guaranteed to exist now
         row = con.execute(
-            "SELECT tenant_id, client_id, client_secret, username, password, refresh_token "
+            "SELECT tenant_id, client_id, client_secret, "
+            "username, password, refresh_token "
             "FROM bc_azure_config WHERE id=1"
         ).fetchone()
-    except Exception:
+    except Exception as _e:
         row = None
     con.close()
     if row:
         return {
-            "tenant_id":     row[0] or "", "client_id":     row[1] or "",
-            "client_secret": row[2] or "", "username":      row[3] or "",
-            "password":      row[4] or "", "refresh_token": row[5] or "",
+            "tenant_id":     (row[0] or "").strip(),
+            "client_id":     (row[1] or "").strip(),
+            "client_secret": (row[2] or "").strip(),
+            "username":      (row[3] or "").strip(),
+            "password":      (row[4] or "").strip(),
+            "refresh_token": (row[5] or "").strip(),
         }
-    return {}
+    return {
+        "tenant_id": "", "client_id": "", "client_secret": "",
+        "username":  "", "password":  "", "refresh_token": "",
+    }
 
 
 def _save_azure_cfg(tid: str, cid: str, csec: str,
@@ -474,6 +489,14 @@ def _poll_device_code(cfg: dict, device_code: str, interval: int = 5) -> dict:
         f"https://login.microsoftonline.com/{cfg['tenant_id']}"
         "/oauth2/v2.0/token"
     )
+    # Fail fast with a clear message if client_secret is missing
+    if not (cfg.get("client_secret") or "").strip():
+        raise RuntimeError(
+            "Client Secret is empty in saved config. "
+            "Open Azure / Teams Configuration, fill in Client Secret, "
+            "click Save All, then try again."
+        )
+
     deadline = time.time() + 300
     while time.time() < deadline:
         time.sleep(interval)
