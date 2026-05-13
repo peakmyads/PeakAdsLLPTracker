@@ -454,8 +454,9 @@ def _start_device_code_flow(cfg: dict) -> dict:
         "/oauth2/v2.0/devicecode"
     )
     r = requests.post(url, data={
-        "client_id": cfg["client_id"],
-        "scope":     "https://graph.microsoft.com/.default offline_access",
+        "client_id":     cfg["client_id"],
+        "client_secret": cfg["client_secret"],   # required for confidential clients
+        "scope":         "https://graph.microsoft.com/.default offline_access",
     }, timeout=20)
     if not r.ok:
         raise RuntimeError(f"Device code request failed: {_azure_error(r)}")
