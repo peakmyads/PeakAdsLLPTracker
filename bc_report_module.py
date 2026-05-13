@@ -1050,6 +1050,18 @@ def _render_azure_config():
                     if not poll_cfg["client_secret"]:
                         st.error("❌ Client Secret missing — restart the flow by clicking Authenticate again.")
                     else:
+                        # ── DEBUG: show exactly what we are sending ──────────
+                        st.info(
+                            f"**DEBUG — Sending to Azure:**  \n"
+                            f"tenant_id: `{poll_cfg['tenant_id'][:8]}...`  \n"
+                            f"client_id: `{poll_cfg['client_id'][:8]}...`  \n"
+                            f"client_secret length: `{len(poll_cfg['client_secret'])}`  \n"
+                            f"device_code length: `{len(dc_flow.get('device_code',''))}`"
+                        )
+                        if len(poll_cfg["client_secret"]) == 0:
+                            st.error("❌ client_secret is EMPTY — this is the cause of AADSTS7000218. "
+                                     "Click Authenticate again and make sure Client Secret field is filled.")
+                            st.stop()
                         with st.spinner("Checking authentication…"):
                             token_resp = _poll_device_code(
                                 poll_cfg,
@@ -1841,6 +1853,7 @@ def _render_table_and_actions(df: pd.DataFrame):
 def render_bc_report_tab():
     init_bc_report_tables()
 
+    st.markdown("**bc_report_module version: 2026-05-13-v8**", unsafe_allow_html=False)
     st.markdown("""
     <div style="background:linear-gradient(135deg,#003366 0%,#005599 100%);
         border-radius:10px;padding:18px 24px;margin-bottom:20px;
