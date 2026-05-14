@@ -8,3 +8,4 @@ dropbox
 requests
 num2words
 plotly
+groq
