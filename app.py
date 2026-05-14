@@ -5,14 +5,6 @@ Description:
 Revenue, Cost, Billing & Collection Tracker
 """
 
-import streamlit as st
-
-st.set_page_config(
-    page_title="PeakAds Revenue Intelligence",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-
 from login import login_screen, get_allowed_tabs, admin_change_password
 from invoice_module import render_invoice_module
 from bot_module import render_bot_tab, render_bot_fab
@@ -20,7 +12,7 @@ from navbar import render_navbar
 from dashboard_module import render_dashboard_tab
 from ageing_module import render_ageing_tab
 from bc_report_module import render_bc_report_tab
-
+import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
@@ -48,15 +40,10 @@ import dropbox
 
 def get_dropbox_client():
     import dropbox
-
-    APP_KEY = "xn40ddpn2ow57xg"
-    APP_SECRET = "9n8shqjaywwigor"
-    REFRESH_TOKEN = "z8O-84xJC_4AAAAAAAAAAdqrxTIhS0ruI0K2BlFDkUUWu0SZzRwZaz3g34uw-DUf"
-
     return dropbox.Dropbox(
-        oauth2_refresh_token=REFRESH_TOKEN,
-        app_key=APP_KEY,
-        app_secret=APP_SECRET
+        oauth2_refresh_token=st.secrets["DROPBOX_REFRESH_TOKEN"],
+        app_key=st.secrets["DROPBOX_APP_KEY"],
+        app_secret=st.secrets["DROPBOX_APP_SECRET"]
     )
     
     return dbx
@@ -5584,23 +5571,6 @@ if "Admin Control" in tabs:
         import dropbox
         from datetime import datetime
 
-        import requests
-
-        APP_KEY = "xn40ddpn2ow57xg"
-        APP_SECRET = "9n8shqjaywwigor"
-
-        url = "https://api.dropboxapi.com/oauth2/token"
-
-        data = {
-            "code": "AIPgJRZfWnAAAAAAAAABVwiKqaQOYhC4zqno-Gu0sCA",
-            "grant_type": "authorization_code"
-        }
-
-        auth = (APP_KEY, APP_SECRET)
-
-        response = requests.post(url, data=data, auth=auth)
-        print(response.json())
-
         BACKUP_FOLDER = "/PALLP-backups"
 
 
@@ -5691,8 +5661,13 @@ if "Admin Control" in tabs:
                         st.error("No backups found")
 
                 except Exception as e:
-                    st.error("Unable to fetch backup info")
-                    st.code(str(e))
+                    err_msg = str(e)
+                    if "ConnectionPool" in err_msg or "ConnectionError" in err_msg or "HTTPSConnection" in err_msg:
+                        st.warning("📵 No internet connection. Retrying in 10 seconds...")
+                        import time; time.sleep(10); st.rerun()
+                    else:
+                        st.error("❌ Unable to fetch backup info")
+                        st.code(err_msg)
         
         with col3:
             # ====================================================
@@ -5814,7 +5789,7 @@ if "Edit Database" in tabs:
                 border-radius:10px;padding:18px 24px;margin-bottom:20px;
                 box-shadow:0 4px 16px rgba(0,51,102,.2);
                 display:flex;align-items:center;height:55px;gap:14px;">
-                <div style="font-size:32px;">🛠</div>
+                <div style="font-size:32px; color:white;">🛠</div>
                 <div>
                     <div style="color:white;font-size:20px;font-weight:800;">
                         Edit Database (Direct SQL Editor)</div>
