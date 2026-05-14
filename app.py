@@ -29,6 +29,14 @@ from reportlab.platypus import Table
 from reportlab.lib import utils
 from st_aggrid import JsCode
 
+import streamlit as st
+
+st.set_page_config(
+    page_title="PeakAds Revenue Intelligence",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
 import base64
 
 def get_image_base64(path):
