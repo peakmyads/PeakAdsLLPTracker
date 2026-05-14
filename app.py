@@ -12,6 +12,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
 from login import login_screen, get_allowed_tabs, admin_change_password
 from invoice_module import render_invoice_module
 from bot_module import render_bot_tab, render_bot_fab
