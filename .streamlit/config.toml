@@ -1,0 +1,6 @@
+[server]
+maxMessageSize = 200
+enableWebsocketCompression = true
+
+[client]
+showErrorDetails = false
