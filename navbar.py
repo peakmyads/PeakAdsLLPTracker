@@ -70,6 +70,7 @@ TAB_MAP = {
     "Admin Control"   : "⚙️ Admin Control Panel",
     "Edit Database"   : "🛠️ Edit Database",
     "BC Report"       : "📋 BC Report",
+    "Assistant"       : "🤖 Assistant",
 }
 
 TAB_ICONS = {
@@ -85,6 +86,7 @@ TAB_ICONS = {
     "Admin Control"   : "⚙️",
     "Edit Database"   : "🛠️",
     "BC Report"       : "📋",
+    "Assistant"       : "🤖",
 }
 
 
