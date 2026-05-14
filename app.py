@@ -7,6 +7,7 @@ Revenue, Cost, Billing & Collection Tracker
 
 from login import login_screen, get_allowed_tabs, admin_change_password
 from invoice_module import render_invoice_module
+from bot_module import render_bot_tab, render_bot_fab
 from navbar import render_navbar
 from dashboard_module import render_dashboard_tab
 from ageing_module import render_ageing_tab
@@ -1649,6 +1650,7 @@ tab_map = {
     "Admin Control": "⚙️ Admin Control Panel",
     "Edit Database": "🛠️ Edit Database",
     "BC Report":     "📋 BC Report",
+    "Assistant": "🤖 Assistant",
 }
 
 tab_titles = [tab_map[t] for t in allowed_tabs]
@@ -1674,6 +1676,9 @@ if "Dashboard" in tabs:
 if "BC Report" in tabs:
     with tabs["BC Report"]:
         render_bc_report_tab()
+
+with tabs["Assistant"]:
+    render_bot_tab()
 
 # ====================================================
 # LIST OF PARTNERS TAB
@@ -6482,3 +6487,6 @@ if "Ageing" in tabs:
             dsp_df=st.session_state.dsp_df,
             ssp_df=st.session_state.ssp_df,
         )
+        
+# At the very bottom of app.py — after all tab blocks
+render_bot_fab()
