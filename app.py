@@ -5,6 +5,13 @@ Description:
 Revenue, Cost, Billing & Collection Tracker
 """
 
+import streamlit as st
+
+st.set_page_config(
+    page_title="PeakAds Revenue Intelligence",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 from login import login_screen, get_allowed_tabs, admin_change_password
 from invoice_module import render_invoice_module
 from bot_module import render_bot_tab, render_bot_fab
@@ -12,7 +19,7 @@ from navbar import render_navbar
 from dashboard_module import render_dashboard_tab
 from ageing_module import render_ageing_tab
 from bc_report_module import render_bc_report_tab
-import streamlit as st
+
 import pandas as pd
 import os
 from datetime import datetime
@@ -28,14 +35,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Table
 from reportlab.lib import utils
 from st_aggrid import JsCode
-
-import streamlit as st
-
-st.set_page_config(
-    page_title="PeakAds Revenue Intelligence",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
 
 import base64
 
