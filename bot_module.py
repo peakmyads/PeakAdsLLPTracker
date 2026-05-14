@@ -247,8 +247,8 @@ def render_bot_tab():
     <div style="background:linear-gradient(135deg,#003366 0%,#0076CE 100%);
         border-radius:12px;padding:18px 24px;margin-bottom:20px;
         box-shadow:0 4px 16px rgba(0,51,102,.2);
-        display:flex;align-items:center;gap:14px;">
-        <div style="font-size:36px;">🤖</div>
+        display:flex;align-items:center;height:55px;gap:14px;">
+        <div style="font-size:36px; color:white;">🤖</div>
         <div>
             <div style="color:white;font-size:20px;font-weight:800;">
                 PeakBot — AI Assistant
