@@ -427,8 +427,8 @@ def _build_welcome_msg() -> str:
     """HTML welcome message sent when a Chat ID is first configured."""
     return (
         "<p>Hi Team,</p>"
-        "<p>I am <strong>PeakBot who works for Number Confirmation and </strong>, "
-        "set up to streamline our monthly reconciliation process.</p>"
+        "<p>I am <strong>PeakBot who works for Number Confirmation</strong>, "
+        "and set up to streamline our monthly reconciliation process.</p>"
         "<p>Going forward, you will receive two types of messages from me here:</p>"
         "<ol>"
         "<li><strong>Reminder for Number Confirmation Request</strong> — sent at the beginning of each month, "
