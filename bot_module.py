@@ -347,62 +347,117 @@ def render_bot_fab():
     """
     st.markdown("""
     <style>
+    @keyframes pb-float {
+        0%   { transform: translateY(0px);   }
+        50%  { transform: translateY(-6px);  }
+        100% { transform: translateY(0px);   }
+    }
+    @keyframes pb-ripple {
+        0%   { transform: scale(1);   opacity: 0.5; }
+        100% { transform: scale(1.9); opacity: 0;   }
+    }
+    #peakbot-fab-wrap {
+        position : fixed;
+        bottom   : 28px;
+        right    : 28px;
+        z-index  : 99997;
+        width    : 58px;
+        height   : 58px;
+    }
+    #peakbot-fab-ripple {
+        position      : absolute;
+        inset         : 0;
+        border-radius : 50%;
+        background    : rgba(120, 210, 255, 0.35);
+        animation     : pb-ripple 2s ease-out infinite;
+        pointer-events: none;
+    }
     #peakbot-fab {
-        position       : fixed;
-        bottom         : 28px;
-        right          : 28px;
-        z-index        : 99997;
-        width          : 52px;
-        height         : 52px;
+        position       : absolute;
+        inset          : 0;
         border-radius  : 50%;
-        background     : linear-gradient(135deg, #0076CE 0%, #003a80 100%);
-        color          : white;
-        font-size      : 22px;
-        border         : 2px solid rgba(255,255,255,0.25);
-        cursor         : pointer;
-        box-shadow     : 0 4px 18px rgba(0,118,206,0.55);
+        background     : linear-gradient(
+                            135deg,
+                            rgba(255,255,255,0.55) 0%,
+                            rgba(140,220,255,0.35) 40%,
+                            rgba(80,170,255,0.25) 70%,
+                            rgba(180,240,255,0.15) 100%
+                         );
+        backdrop-filter        : blur(12px) saturate(180%);
+        -webkit-backdrop-filter: blur(12px) saturate(180%);
+        border  : 1.5px solid rgba(255,255,255,0.6);
+        cursor  : pointer;
+        font-size      : 26px;
         display        : flex;
         align-items    : center;
         justify-content: center;
-        transition     : transform 0.18s ease, box-shadow 0.18s ease;
+        animation      : pb-float 3s ease-in-out infinite;
+        box-shadow     :
+            0 8px 32px rgba(80,180,255,0.30),
+            0 2px 8px  rgba(255,255,255,0.40) inset,
+            0 -2px 6px rgba(120,200,255,0.20) inset;
+        transition     : box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    #peakbot-fab::before {
+        content       : '';
+        position      : absolute;
+        top           : 6px;
+        left          : 10px;
+        width         : 36%;
+        height        : 18%;
+        background    : rgba(255,255,255,0.65);
+        border-radius : 50%;
+        filter        : blur(3px);
+        pointer-events: none;
     }
     #peakbot-fab:hover {
-        transform  : scale(1.12);
-        box-shadow : 0 6px 28px rgba(0,118,206,0.75);
+        box-shadow :
+            0 12px 40px rgba(80,180,255,0.50),
+            0 2px 10px rgba(255,255,255,0.50) inset,
+            0 -2px 8px rgba(120,200,255,0.30) inset;
+        animation-play-state: paused;
+        transform: scale(1.10);
     }
     #peakbot-fab-label {
         position      : fixed;
-        bottom        : 88px;
+        bottom        : 94px;
         right         : 18px;
         z-index       : 99997;
-        background    : #003366;
-        color         : white;
+        background    : rgba(255,255,255,0.15);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border        : 1px solid rgba(255,255,255,0.4);
+        color         : #003366;
         font-size     : 11px;
-        font-weight   : 600;
-        padding       : 5px 10px;
-        border-radius : 8px;
+        font-weight   : 700;
+        padding       : 5px 12px;
+        border-radius : 20px;
         white-space   : nowrap;
         opacity       : 0;
         pointer-events: none;
         transition    : opacity 0.2s;
         font-family   : -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        box-shadow    : 0 2px 8px rgba(0,0,0,0.2);
+        box-shadow    : 0 2px 12px rgba(80,180,255,0.25);
     }
-    #peakbot-fab:hover ~ #peakbot-fab-label { opacity: 1; }
+    #peakbot-fab-wrap:hover #peakbot-fab-label { opacity: 1; }
     @media (max-width: 768px) {
-        #peakbot-fab { bottom:16px; right:16px; width:44px; height:44px; font-size:18px; }
+        #peakbot-fab-wrap { bottom:16px; right:16px; width:46px; height:46px; }
+        #peakbot-fab { font-size:20px; }
         #peakbot-fab-label { display: none; }
     }
     </style>
-    <button id="peakbot-fab" title="Open PeakBot AI Assistant">🤖</button>
-    <div id="peakbot-fab-label">PeakBot — AI Assistant</div>
+    <div id="peakbot-fab-wrap">
+        <div id="peakbot-fab-ripple"></div>
+        <button id="peakbot-fab" title="Open PeakBot AI Assistant">🤖</button>
+        <div id="peakbot-fab-label">PeakBot — AI Assistant</div>
+    </div>
     """, unsafe_allow_html=True)
 
     components.html("""<!DOCTYPE html><html><body style="margin:0;background:transparent;">
     <script>
     (function bindFab(){
         var P   = window.parent.document;
-        var fab = P.getElementById('peakbot-fab');
+        var fab = P.querySelector('#peakbot-fab-wrap #peakbot-fab');
         if (!fab || fab._pbBound) return;
         fab._pbBound = true;
         fab.addEventListener('click', function(){
